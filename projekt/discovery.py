@@ -13,6 +13,7 @@ def run_discovery_service(pipe_recv, pipe_send, config):
     local_port = config['port']
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # REUSEADDR damit jeder den Port für Broadcast nutzen kann.
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.bind(('', whoisport))
 
