@@ -1,0 +1,5 @@
+handle = "Bob"
+port = 5012
+whoisport = 4000
+autoreply = "Bin gerade nicht da."
+imagepath = "./images"

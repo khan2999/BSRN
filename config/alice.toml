@@ -1,0 +1,6 @@
+handle = "Alice"
+port = 5011
+whoisport = 4000
+autoreply = "Ich bin nicht da."
+imagepath = "./images"
+
