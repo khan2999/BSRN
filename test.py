@@ -1,1 +1,1 @@
-print("Hallo, PyCharm!")
+print("Hallo, Pycharm!")
