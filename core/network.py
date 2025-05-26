@@ -1,9 +1,31 @@
 import socket
 import threading
+import time
+import os
 
 BUFFER_SIZE = 1024
 BROADCAST_IP = "255.255.255.255"
 BROADCAST_PORT = 4000
+
+def start_udp_listener(local_port: int, own_handle: str):
+    """
+    @brief  Startet den UDP-Listener für SLCP-Nachrichten (JOIN, WHOIS, IAM, MSG, IMG, LEAVE)
+    @param  local_port   Der lokale UDP-Port
+    @param  own_handle   Der eigene Handle
+    """
+    def listener():
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.bind(("", local_port))
+            print(f"[INFO] UDP-Listener läuft auf Port {local_port}…")
+            while True:
+                data, addr = s.recvfrom(BUFFER_SIZE)
+                text = data.decode(errors="ignore").strip()
+                parts = text.split()
+
+                # alle anderen Nachrichten weiterleiten
+                handle_incoming_message(data, addr, own_handle, local_port)
+
+    threading.Thread(target=listener, daemon=True).start()
 
 # === JOIN ===
 def send_join(handle: str, port: int):
@@ -21,24 +43,24 @@ def send_whois(target_handle: str):
         s.sendto(message, (BROADCAST_IP, BROADCAST_PORT))
         print(f"[INFO] WHOIS gesendet: {message.decode().strip()}")
 
+def send_leave(handle: str):
+    """
+    @brief  Sendet LEAVE-Nachricht an alle Teilnehmer per Broadcast
+    @param  handle  Der eigene Benutzername
+    """
+    message = f"LEAVE {handle}\n".encode("utf-8")
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.sendto(message, (BROADCAST_IP, BROADCAST_PORT))
+        print(f"[INFO] LEAVE gesendet: {message.decode().strip()}")
+
+import os
 # === MSG ===
 def send_msg(target_ip: str, target_port: int, sender_handle: str, text: str):
     message = f"MSG {sender_handle} {text}\n".encode("utf-8")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(message, (target_ip, target_port))
         print(f"[INFO] Nachricht gesendet an {target_ip}:{target_port}")
-
-# === UDP-Listener ===
-def start_udp_listener(local_port: int, own_handle: str):
-    def listener():
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.bind(("", local_port))
-            print(f"[INFO] UDP-Listener läuft auf Port {local_port}...")
-            while True:
-                data, addr = s.recvfrom(BUFFER_SIZE)
-                handle_incoming_message(data, addr, own_handle, local_port)
-
-    threading.Thread(target=listener, daemon=True).start()
 
 # === Discovery-Listener (für WHOIS) ===
 def start_discovery_listener(own_handle: str, own_port: int):
@@ -81,6 +103,13 @@ def handle_incoming_message(data: bytes, addr, own_handle: str, own_port: int):
             sender = parts[1]
             msg_text = " ".join(parts[2:])
             print(f"[MSG] {sender}: {msg_text}")
+        # === NEU: LEAVE verarbeiten ===
+        elif command == "LEAVE" and len(parts) == 2:
+            leaver = parts[1]
+            print(f"[INFO] {leaver} hat den Chat verlassen.")
+
+
+
 
     except Exception as e:
         print(f"[ERROR] Fehler beim Verarbeiten der Nachricht: {e}")

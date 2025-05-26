@@ -2,6 +2,7 @@ import sys
 from core.config_loader import load_config
 from core.network import (
     send_join,
+    send_leave,
     start_udp_listener,
     start_discovery_listener,
     send_whois,
@@ -24,7 +25,8 @@ def main():
     start_discovery_listener(handle, port)
 
     print(f"🟢 Chat-Client ({handle}) gestartet.")
-    print("Verfügbare Befehle: JOIN | WHOIS <Handle> | MSG <IP>:<Port> <Nachricht> | EXIT")
+    print(
+        "Verfügbare Befehle: JOIN | WHOIS <Handle> | MSG <IP>:<Port> <Nachricht> | LEAVE | EXIT")
 
     while True:
         try:
@@ -43,6 +45,8 @@ def main():
                     send_msg(ip, target_port, handle, text)
                 except Exception as e:
                     print(f"[Fehler] Ungültiger MSG-Befehl: {e}")
+            elif command.upper() == "LEAVE":
+                send_leave(handle)
             elif command == "EXIT":
                 print("👋 Chat-Client wird beendet.")
                 break
