@@ -4,7 +4,6 @@ import socket
 import threading
 
 BROADCAST_ADDR = '255.255.255.255'
-
 user_registry = {}  # handle: (ip, port)
 
 def run_discovery_service(pipe_recv, pipe_send, config):
@@ -13,7 +12,6 @@ def run_discovery_service(pipe_recv, pipe_send, config):
     local_port = config['port']
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # REUSEADDR damit jeder den Port für Broadcast nutzen kann.
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.bind(('', whoisport))
 
@@ -46,7 +44,7 @@ def run_discovery_service(pipe_recv, pipe_send, config):
 
     threading.Thread(target=listener, daemon=True).start()
 
-    # JOIN senden
+    # JOIN senden (Broadcast)
     join_msg = f"JOIN {local_handle} {local_port}".encode('utf-8')
     sock.sendto(join_msg, (BROADCAST_ADDR, whoisport))
 
@@ -56,5 +54,7 @@ def run_discovery_service(pipe_recv, pipe_send, config):
             if cmd == "leave":
                 leave_msg = f"LEAVE {local_handle}".encode('utf-8')
                 sock.sendto(leave_msg, (BROADCAST_ADDR, whoisport))
+                for handle, (ip, port) in user_registry.items():
+                    sock.sendto(leave_msg, (ip, port))
             elif cmd == "who":
                 sock.sendto(b"WHO", (BROADCAST_ADDR, whoisport))
