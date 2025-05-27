@@ -1,5 +1,5 @@
-import tomllib
-
-def load_config(path='config.toml'):
+def load_config(path):
+    import tomllib
     with open(path, 'rb') as f:
         return tomllib.load(f)
+
