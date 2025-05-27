@@ -1,61 +1,55 @@
-# network.py
+# Versenden und Empfangen von Nachrichten (SLCP)
 
 import socket
+import threading
 import os
 
 def run_network_service(pipe_recv, pipe_send, config):
-    port = config['port']
+    udp_port = config['port']
+    autoreply = config['autoreply']
     imagepath = config['imagepath']
-    os.makedirs(imagepath, exist_ok=True)
+
+    if not os.path.exists(imagepath):
+        os.makedirs(imagepath)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(('', port))
+    sock.bind(("", udp_port))
 
-    def send_msg(to, text, ip, port):
-        message = f"MSG {to} {text}".encode('utf-8')
-        sock.sendto(message, (ip, port))
-
-    def send_img(to, filepath, ip, port):
-        try:
-            size = os.path.getsize(filepath)
-            header = f"IMG {to} {size}".encode('utf-8')
-            sock.sendto(header, (ip, port))
-            with open(filepath, 'rb') as f:
-                sock.sendto(f.read(), (ip, port))
-        except Exception as e:
-            print(f"Fehler beim Senden des Bildes: {e}")
-
-    from threading import Thread
-
-    def listener():
+    def listen():
         while True:
-            data, addr = sock.recvfrom(65536)
-            try:
-                decoded = data.decode('utf-8')
-                if decoded.startswith("MSG"):
-                    _, sender, text = decoded.split(" ", 2)
-                    pipe_send.send(("msg", sender, text))
+            data, addr = sock.recvfrom(65535)
+            if data.startswith(b"MSG"):
+                parts = data.decode("utf-8").split(" ", 2)
+                sender = addr[0]
+                print(f"\n[Nachricht von {parts[1]}]: {parts[2]}")
+                pipe_send.send(("msg", parts[1], parts[2]))
 
-                elif decoded.startswith("IMG"):
-                    _, sender, size = decoded.split()
-                    size = int(size)
-                    image_data, _ = sock.recvfrom(size)
-                    filename = os.path.join(imagepath, f"{sender}_bild.jpg")
-                    with open(filename, 'wb') as f:
-                        f.write(image_data)
-                    pipe_send.send(("img", sender, filename))
+            elif data.startswith(b"IMG"):
+                parts = data.decode("utf-8").split(" ")
+                size = int(parts[2])
+                img_data, _ = sock.recvfrom(size)
+                filename = os.path.join(imagepath, f"bild_von_{parts[1]}.jpg")
+                with open(filename, "wb") as f:
+                    f.write(img_data)
+                print(f"\n[Empfangenes Bild gespeichert: {filename}]")
+                pipe_send.send(("img", parts[1], filename))
 
-            except UnicodeDecodeError:
-                continue
-
-    Thread(target=listener, daemon=True).start()
+    threading.Thread(target=listen, daemon=True).start()
 
     while True:
         if pipe_recv.poll():
-            cmd = pipe_recv.recv()
-            if cmd[0] == "send_msg":
-                _, to, text, ip, port = cmd
-                send_msg(to, text, ip, port)
-            elif cmd[0] == "send_img":
-                _, to, path, ip, port = cmd
-                send_img(to, path, ip, port)
+            cmd, *args = pipe_recv.recv()
+
+            if cmd == "send_msg":
+                handle, text, ip, port = args
+                message = f"MSG {handle} {text}".encode("utf-8")
+                sock.sendto(message, (ip, port))
+
+            elif cmd == "send_img":
+                handle, path, ip, port = args
+                with open(path, "rb") as f:
+                    img_data = f.read()
+                size = len(img_data)
+                header = f"IMG {handle} {size}".encode("utf-8")
+                sock.sendto(header, (ip, port))
+                sock.sendto(img_data, (ip, port))

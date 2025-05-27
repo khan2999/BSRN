@@ -10,6 +10,7 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
     known_users = {}
 
     while True:
+        # Discovery-Updates
         if pipe_disc_in.poll():
             msg_type, data = pipe_disc_in.recv()
             if msg_type == "users":
@@ -18,6 +19,7 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
                 for h, (ip, port) in known_users.items():
                     print(f"  {h}: {ip}:{port}")
 
+        # Eingehende Nachrichten / Bilder
         if pipe_net_in.poll():
             msg_type, sender, content = pipe_net_in.recv()
             if msg_type == "msg":
@@ -25,29 +27,32 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
             elif msg_type == "img":
                 print(f"\nBild von {sender} gespeichert unter: {content}")
 
+        # User-Eingabe
         try:
-            cmd = input("\n> ").strip().split(" ", 2)
-            if not cmd:
+            parts = input("\n> ").strip().split(" ", 2)
+            if not parts or parts[0] == "":
                 continue
 
-            if cmd[0] == "msg" and len(cmd) == 3:
-                to, text = cmd[1], cmd[2]
+            cmd = parts[0]
+
+            if cmd == "msg" and len(parts) == 3:
+                to, text = parts[1], parts[2]
                 if to in known_users:
                     ip, port = known_users[to]
                     pipe_net_out.send(("send_msg", to, text, ip, port))
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
-            elif cmd[0] == "img" and len(cmd) == 3:
-                to, path = cmd[1], cmd[2]
+            elif cmd == "img" and len(parts) == 3:
+                to, path = parts[1], parts[2]
                 if to in known_users:
                     ip, port = known_users[to]
                     pipe_net_out.send(("send_img", to, path, ip, port))
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
-            elif cmd[0] == "allmsg" and len(cmd) == 2:
-                text = cmd[1]
+            elif cmd == "allmsg" and len(parts) == 2:
+                text = parts[1]
                 if known_users:
                     for to, (ip, port) in known_users.items():
                         if to != handle:
@@ -56,13 +61,13 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
                 else:
                     print("Keine bekannten Nutzer. Erst 'who' ausführen.")
 
-            elif cmd[0] == "who":
+            elif cmd == "who":
                 pipe_disc_out.send("who")
 
-            elif cmd[0] == "leave":
+            elif cmd == "leave":
                 pipe_disc_out.send("leave")
 
-            elif cmd[0] == "quit":
+            elif cmd == "quit":
                 pipe_disc_out.send("leave")
                 break
 

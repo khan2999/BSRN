@@ -1,5 +1,4 @@
 # main.py
-
 import multiprocessing
 import sys
 from ui import run_ui
@@ -8,46 +7,37 @@ from network import run_network_service
 from config import load_config
 
 def main():
-    # Konfigurationsdatei als Argument übergeben
-    if len(sys.argv) < 2:
-        print("⚠️  Bitte gib den Pfad zur TOML-Datei an. Beispiel:\n   python main.py config_bob.toml")
-        return
-    config_path = sys.argv[1]
+    config_path = sys.argv[1] if len(sys.argv) > 1 else "alice.toml"
     config = load_config(config_path)
 
-    # Pipes für Kommunikation
+
+    # Pipes
     ui_to_net, net_from_ui = multiprocessing.Pipe()
     ui_to_disc, disc_from_ui = multiprocessing.Pipe()
     net_to_ui, ui_from_net = multiprocessing.Pipe()
     disc_to_ui, ui_from_disc = multiprocessing.Pipe()
 
-    # 3 Prozesse starten
-    ui_process = multiprocessing.Process(
-        target=run_ui,
-        args=(net_from_ui, net_to_ui, disc_from_ui, disc_to_ui, config)
+    # Discovery und Network als Prozesse
+    discovery_process = multiprocessing.Process(
+        target=run_discovery_service,
+        args=(disc_from_ui, disc_to_ui, config)
     )
 
     network_process = multiprocessing.Process(
         target=run_network_service,
-        args=(ui_to_net, net_to_ui, config)
+        args=(net_from_ui, net_to_ui, config)
     )
 
-    discovery_process = multiprocessing.Process(
-        target=run_discovery_service,
-        args=(ui_to_disc, disc_to_ui, config)
-    )
-
-    # Prozesse starten
-    ui_process.start()
-    network_process.start()
     discovery_process.start()
+    network_process.start()
 
-    # Auf Beendigung der UI warten
-    ui_process.join()
+    # UI im Hauptprozess
+    run_ui(ui_to_net, ui_from_net, ui_to_disc, ui_from_disc, config)
 
-    # Netzwerk- und Discovery-Prozesse beenden
+    # Nach Beenden der UI:
     network_process.terminate()
     discovery_process.terminate()
+
 
 if __name__ == '__main__':
     main()
