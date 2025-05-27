@@ -2,6 +2,7 @@
 
 def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
     handle = config['handle']
+    pipe_disc_out.send("who")
 
     print(f"Willkommen im Chat, {handle}!")
     print("Befehle: msg <handle> <text>, img <handle> <pfad>, who, allmsg <text>, leave, quit")
