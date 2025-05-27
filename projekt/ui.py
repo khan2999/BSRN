@@ -40,6 +40,7 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
+            # Bild senden
             elif cmd[0] == "img" and len(cmd) == 3:
                 to, path = cmd[1], cmd[2]
                 if to in known_users:
