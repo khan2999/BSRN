@@ -1,13 +1,11 @@
-# Kommandozeilenoberfläche
+# ui.py – Kommandozeilenoberfläche
 
 def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
     handle = config['handle']
 
-    # Begrüßung und Command Liste
     print(f"Willkommen im Chat, {handle}!")
-    print("Befehle: msg <handle> <text>, img <handle> <pfad>, who, leave, quit")
+    print("Befehle: msg <handle> <text>, img <handle> <pfad>, who, allmsg <text>, leave, quit")
 
-    # Dictionary für bekannte Teilnehmer im Chat
     known_users = {}
 
     while True:
@@ -31,7 +29,6 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
             if not cmd:
                 continue
 
-            # Nachricht senden
             if cmd[0] == "msg" and len(cmd) == 3:
                 to, text = cmd[1], cmd[2]
                 if to in known_users:
@@ -40,7 +37,6 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
-            # Bild senden
             elif cmd[0] == "img" and len(cmd) == 3:
                 to, path = cmd[1], cmd[2]
                 if to in known_users:
@@ -49,15 +45,22 @@ def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
-            # Liste der aktiven Nutzer
+            elif cmd[0] == "allmsg" and len(cmd) == 2:
+                text = cmd[1]
+                if known_users:
+                    for to, (ip, port) in known_users.items():
+                        if to != handle:
+                            pipe_net_out.send(("send_msg", to, text, ip, port))
+                    print("Nachricht an alle gesendet.")
+                else:
+                    print("Keine bekannten Nutzer. Erst 'who' ausführen.")
+
             elif cmd[0] == "who":
                 pipe_disc_out.send("who")
 
-            # Chatraum verlassen
             elif cmd[0] == "leave":
                 pipe_disc_out.send("leave")
 
-            # Programm beenden
             elif cmd[0] == "quit":
                 pipe_disc_out.send("leave")
                 break
