@@ -1,43 +1,56 @@
 # main.py
-import multiprocessing
+
 import sys
-from ui import run_ui
+import multiprocessing
+import time
+
+from config import Config
 from discovery import run_discovery_service
-from network import run_network_service
-from config import load_config
+from network   import run_network_service
+from ui        import run_ui
 
 def main():
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "alice.toml"
-    config = load_config(config_path)
+    if len(sys.argv) != 2:
+        print("Usage: python3 main.py <alice.toml|bob.toml>")
+        sys.exit(1)
 
+    config = Config(sys.argv[1])
 
-    # Pipes
-    ui_to_net, net_from_ui = multiprocessing.Pipe()
-    ui_to_disc, disc_from_ui = multiprocessing.Pipe()
-    net_to_ui, ui_from_net = multiprocessing.Pipe()
-    disc_to_ui, ui_from_disc = multiprocessing.Pipe()
+    # Pipes anlegen
+    net_cmd, net_recv   = multiprocessing.Pipe()
+    net_send, net_evt   = multiprocessing.Pipe()
+    disc_cmd, disc_recv = multiprocessing.Pipe()
+    disc_send, disc_evt = multiprocessing.Pipe()
 
-    # Discovery und Network als Prozesse
-    discovery_process = multiprocessing.Process(
+    # 1) Discovery-Prozess starten
+    disc_proc = multiprocessing.Process(
         target=run_discovery_service,
-        args=(disc_from_ui, disc_to_ui, config)
+        args=(disc_recv, disc_send, config),
+        daemon=True
     )
+    disc_proc.start()
 
-    network_process = multiprocessing.Process(
+    # Kurze Pause, damit Discovery bereits lauscht
+    time.sleep(0.1)
+
+    # 2) Network-Prozess starten
+    net_proc = multiprocessing.Process(
         target=run_network_service,
-        args=(net_from_ui, net_to_ui, config)
+        args=(net_recv, net_send, config),
+        daemon=True
     )
+    net_proc.start()
 
-    discovery_process.start()
-    network_process.start()
+    # 3) UI im Hauptprozess
+    try:
+        run_ui(net_cmd, net_evt, disc_cmd, disc_evt, config)
+    except KeyboardInterrupt:
+        print("\n[System] Abbruch per Strg-C.")
+    finally:
+        net_proc.terminate()
+        disc_proc.terminate()
+        net_proc.join()
+        disc_proc.join()
 
-    # UI im Hauptprozess
-    run_ui(ui_to_net, ui_from_net, ui_to_disc, ui_from_disc, config)
-
-    # Nach Beenden der UI:
-    network_process.terminate()
-    discovery_process.terminate()
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

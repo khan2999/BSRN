@@ -1,83 +1,118 @@
 # ui.py – Kommandozeilenoberfläche
 
-def run_ui(pipe_net_out, pipe_net_in, pipe_disc_out, pipe_disc_in, config):
-    handle = config['handle']
-    pipe_disc_out.send("who")
+import threading
+import sys
 
-    print(f"Willkommen im Chat, {handle}!")
-    print("Befehle: msg <handle> <text>, img <handle> <pfad>, who, allmsg <text>, leave, quit")
+def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
+    handle = config.handle
 
-    known_users = {}
+    # 1) Auf TCP-Port warten
+    print("Starte Network-Service, warte auf TCP-Port …")
+    while True:
+        evt = pipe_net_evt.recv()
+        if evt[0] == "tcp_port":
+            tcp_port = evt[1]
+            print(f"[System] Network hört auf TCP-Port {tcp_port}")
+            break
+
+    # 2) Automatisches JOIN & WHO
+    pipe_disc_cmd.send(("join", handle, tcp_port))
+    pipe_disc_cmd.send(("who",))
+
+    known_peers = {}
+    stop_event = threading.Event()
+
+    # 3a) Discovery-Listener-Thread
+    def disc_listener():
+        nonlocal known_peers
+        while not stop_event.is_set():
+            try:
+                evt = pipe_disc_evt.recv()
+            except (EOFError, OSError):
+                break
+            if evt[0] == "users":
+                known_peers = evt[1]
+                print("\n[Discovery] Bekannte Teilnehmer:")
+                for h,(ip,port) in known_peers.items():
+                    print(f"  {h}: {ip}:{port}")
+            elif evt[0] == "error":
+                print(f"\n[Discovery Fehler] {evt[1]}")
+
+    # 3b) Network-Listener-Thread
+    def net_listener():
+        while not stop_event.is_set():
+            try:
+                evt = pipe_net_evt.recv()
+            except (EOFError, OSError):
+                break
+            if evt[0] == "msg":
+                _, sender, text = evt
+                print(f"\nNachricht von {sender}: {text}")
+            elif evt[0] == "img":
+                _, sender, path = evt
+                print(f"\nBild von {sender} gespeichert: {path}")
+            elif evt[0] == "error":
+                print(f"\n[Network Fehler] {evt[1]}")
+
+    t1 = threading.Thread(target=disc_listener, daemon=True)
+    t2 = threading.Thread(target=net_listener,  daemon=True)
+    t1.start()
+    t2.start()
+
+    # 4) Kommando-Eingabe
+    print(f"\nWillkommen im Chat, {handle}!")
+    print("Befehle: msg <handle> <text>, img <handle> <pfad>, allmsg <text>, who, leave, quit")
 
     while True:
-        # Discovery-Updates
-        if pipe_disc_in.poll():
-            msg_type, data = pipe_disc_in.recv()
-            if msg_type == "users":
-                known_users = data
-                print("\nBekannte Teilnehmer:")
-                for h, (ip, port) in known_users.items():
-                    print(f"  {h}: {ip}:{port}")
-
-        # Eingehende Nachrichten / Bilder
-        if pipe_net_in.poll():
-            msg_type, sender, content = pipe_net_in.recv()
-            if msg_type == "msg":
-                print(f"\nNachricht von {sender}: {content}")
-            elif msg_type == "img":
-                print(f"\nBild von {sender} gespeichert unter: {content}")
-
-        # User-Eingabe
         try:
-            parts = input("\n> ").strip().split(" ", 2)
-            if not parts or parts[0] == "":
+            line = input("> ").strip()
+            if not line:
                 continue
+            parts = line.split(" ", 1)
+            cmd   = parts[0]
+            rest  = parts[1] if len(parts) > 1 else ""
 
-            cmd = parts[0]
-
-            if cmd == "msg" and len(parts) == 3:
-                to, text = parts[1], parts[2]
-                if to in known_users:
-                    ip, port = known_users[to]
-                    pipe_net_out.send(("send_msg", to, text, ip, port))
+            if cmd == "msg":
+                to, text = rest.split(" ",1)
+                if to in known_peers:
+                    ip, pr = known_peers[to]
+                    pipe_net_cmd.send(("send_msg", handle, to, text, ip, pr))
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
-            elif cmd == "img" and len(parts) == 3:
-                to, path = parts[1], parts[2]
-                if to in known_users:
-                    ip, port = known_users[to]
-                    pipe_net_out.send(("send_img", to, path, ip, port))
+            elif cmd == "img":
+                to, path = rest.split(" ",1)
+                if to in known_peers:
+                    ip, pr = known_peers[to]
+                    pipe_net_cmd.send(("send_img", handle, to, path, ip, pr))
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
-            elif cmd == "allmsg" and len(parts) == 2:
-                text = parts[1]
-                if known_users:
-                    for to, (ip, port) in known_users.items():
-                        if to != handle:
-                            pipe_net_out.send(("send_msg", to, text, ip, port))
-                    print("Nachricht an alle gesendet.")
-                else:
-                    print("Keine bekannten Nutzer. Erst 'who' ausführen.")
+            elif cmd == "allmsg":
+                text = rest
+                for to,(ip,pr) in known_peers.items():
+                    if to != handle:
+                        pipe_net_cmd.send(("send_msg", handle, to, text, ip, pr))
+                print("Nachricht an alle gesendet.")
 
             elif cmd == "who":
-                pipe_disc_out.send("who")
+                pipe_disc_cmd.send(("who",))
 
             elif cmd == "leave":
-                pipe_disc_out.send("leave")
+                pipe_disc_cmd.send(("leave", handle))
 
-            elif cmd == "quit":
-                pipe_disc_out.send("leave")
-                break
+            elif cmd in ("quit", "exit"):
+                pipe_disc_cmd.send(("leave", handle))
+                print("Chat beendet.")
+                # Threads stoppen und sauber aussteigen
+                stop_event.set()
+                # kurz warten, damit Threads aufwachen
+                t1.join(timeout=0.1)
+                t2.join(timeout=0.1)
+                sys.exit(0)
 
             else:
                 print("Ungültiger Befehl.")
-
-        except EOFError:
-            print("\n[System] Eingabe beendet. Beende Chat.")
-            pipe_disc_out.send("leave")
-            break
 
         except Exception as e:
             print(f"Fehler: {e}")

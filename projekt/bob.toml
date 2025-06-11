@@ -1,5 +1,5 @@
-handle = "Bob"
-port = 5012
+handle    = "bob"
+port      = [5012, 5012]     # Port-Range von 5012 bis 5012 (Einzel-Port)
 whoisport = 4000
 autoreply = "Bin gerade nicht da."
-imagepath = "./images"
+imagepath = "images"         # oder "./images", beides geht
