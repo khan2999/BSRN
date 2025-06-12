@@ -5,7 +5,8 @@ import threading
 from typing import Dict, Tuple
 
 BROADCAST_ADDR = '255.255.255.255'
-BUFFER_SIZE    = 4096
+BUFFER_SIZE = 4096
+
 
 def _get_local_ip() -> str:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -17,10 +18,11 @@ def _get_local_ip() -> str:
     finally:
         s.close()
 
+
 def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
     whois_port = config.whoisport
-    registry: Dict[str, Tuple[str,int]] = {}
-    last_registry: Dict[str, Tuple[str,int]] = {}
+    registry: Dict[str, Tuple[str, int]] = {}
+    last_registry: Dict[str, Tuple[str, int]] = {}
 
     local_ip = _get_local_ip()
 
@@ -48,14 +50,17 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
                 if msg.startswith('JOIN'):
                     _, h, p = msg.split()
                     registry[h] = (addr[0], int(p))
-                    # dem Neuling sofort die vollständige Liste schicken
-                    entries = [f"{h2} {ip} {pr}" for h2,(ip,pr) in registry.items()]
+
+                    # Antwort an neuen Teilnehmer mit allen bekannten
+                    entries = [f"{h2} {ip} {pr}" for h2, (ip, pr) in registry.items()]
                     sock.sendto(('KNOWNUSERS ' + ','.join(entries) + '\n').encode('utf-8'), addr)
-                    # Update an alle Bestands-Peers weiterleiten
+
+                    # JOIN an andere weiterleiten
                     join_msg = f"JOIN {h} {p}\n".encode('utf-8')
-                    for peer_h,(peer_ip,peer_pr) in registry.items():
+                    for peer_h, (peer_ip, peer_pr) in registry.items():
                         if peer_h != h:
                             sock.sendto(join_msg, (peer_ip, peer_pr))
+
                     send_update()
 
                 elif msg.startswith('LEAVE'):
@@ -64,7 +69,7 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
                     send_update()
 
                 elif msg == 'WHO':
-                    entries = [f"{h2} {ip} {pr}" for h2,(ip,pr) in registry.items()]
+                    entries = [f"{h2} {ip} {pr}" for h2, (ip, pr) in registry.items()]
                     sock.sendto(('KNOWNUSERS ' + ','.join(entries) + '\n').encode('utf-8'), addr)
 
                 elif msg.startswith('KNOWNUSERS'):
@@ -79,16 +84,17 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
 
     threading.Thread(target=listener, daemon=True).start()
 
+    # Kommandos verarbeiten
     while True:
         cmd = pipe_cmd.recv()
         if not isinstance(cmd, tuple) or not cmd:
             continue
+
         action = cmd[0]
         try:
             if action == 'join':
                 _, h, p = cmd
                 registry[h] = (local_ip, int(p))
-                send_update()
                 sock.sendto(f"JOIN {h} {p}\n".encode('utf-8'), (BROADCAST_ADDR, whois_port))
 
             elif action == 'who':
@@ -100,7 +106,7 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
                 send_update()
                 msg = f"LEAVE {h}\n".encode('utf-8')
                 sock.sendto(msg, (BROADCAST_ADDR, whois_port))
-                for _,(ip,pr) in registry.items():
+                for _, (ip, pr) in registry.items():
                     sock.sendto(msg, (ip, pr))
 
         except Exception as e:
