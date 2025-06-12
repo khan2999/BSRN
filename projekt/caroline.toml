@@ -1,5 +1,5 @@
-handle    = "Caroline"
-port      = [5013, 5013]     # Port-Range von 5013 bis 5013 (Einzel-Port)
-whoisport = 4000
+handle    = "caroline"
+port      = [5013, 5013]     # lokaler UDP-Port 5013
+whoisport = 4000             # Discovery‐Port
 autoreply = "Bin gerade nicht da."
-imagepath = "images"         # oder "./images", beides geht
+imagepath = "images"         # Ordner für empfangene Bilder

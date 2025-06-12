@@ -1,5 +1,5 @@
-handle    = "Diana"
-port      = [5014, 5014]     # Port-Range von 5014 bis 5014 (Einzel-Port)
+handle    = "diana"
+port      = [5014, 5014]     # lokaler UDP-Port 5014
 whoisport = 4000
-autoreply = "Bin gerade nicht da."
-imagepath = "images"         # oder "./images", beides geht
+autoreply = "Bin gleich zurück."
+imagepath = "images"
