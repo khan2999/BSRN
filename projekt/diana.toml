@@ -1,0 +1,5 @@
+handle    = "Diana"
+port      = [5014, 5014]     # Port-Range von 5014 bis 5014 (Einzel-Port)
+whoisport = 4000
+autoreply = "Bin gerade nicht da."
+imagepath = "images"         # oder "./images", beides geht

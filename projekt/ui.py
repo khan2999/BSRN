@@ -2,6 +2,10 @@
 
 import threading
 import sys
+from colorama import init, Fore, Style # Für farbigen Text
+
+# Initialisiere Farbsystem
+init(autoreset=True)
 
 
 def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
@@ -62,12 +66,12 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     t2.start()
 
     # 4) Kommando-Eingabe
-    print(f"\nWillkommen im Chat, {handle}!")
-    print("Befehle: msg <handle> <text>, img <handle> <pfad>, allmsg <text>, who, leave, quit")
+    print(f"\n{Fore.LIGHTGREEN_EX}Willkommen im Chat, {handle}!")
+    print(f"{Fore.LIGHTYELLOW_EX}Befehle: msg <handle> <text>, img <handle> <pfad>, allmsg <text>, who, leave, quit")
 
     while True:
         try:
-            line = input("> ").strip()
+            line = input("\nEingabe: ").strip()
             if not line:
                 continue
 
@@ -81,7 +85,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                     ip, pr = known_peers[to]
                     pipe_net_cmd.send(("send_msg", handle, to, text, ip, pr))
                 else:
-                    print("Unbekannter Nutzer. Erst 'who' ausführen.")
+                    print("Unbekannter Nutzer. Erst 'who' Befehl ausführen!")
 
             elif cmd == "img":
                 to, path = rest.split(" ", 1)
@@ -89,7 +93,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                     ip, pr = known_peers[to]
                     pipe_net_cmd.send(("send_img", handle, to, path, ip, pr))
                 else:
-                    print("Unbekannter Nutzer. Erst 'who' ausführen.")
+                    print("Unbekannter Nutzer. Erst 'who' Befehl ausführen!")
 
             elif cmd == "allmsg":
                 text = rest
@@ -116,7 +120,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                 sys.exit(0)
 
             else:
-                print("Ungültiger Befehl.")
+                print("Ungültiger Befehl!")
 
         except Exception as e:
             print(f"Fehler: {e}")

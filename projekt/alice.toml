@@ -1,4 +1,4 @@
-handle    = "alice"
+handle    = "Alice"
 port      = [5011, 5011]    # Port-Range (hier nur Port 5011)
 whoisport = 4000
 autoreply = "Ich bin nicht da."
