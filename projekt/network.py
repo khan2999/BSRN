@@ -16,6 +16,7 @@ def run_network_service(pipe_cmd, pipe_evt, config):
       - ("img", sender, saved_filepath)
       - ("error", str)
     """
+    global bound
     handle = config.handle
     image_dir = Path(config.imagepath)
     image_dir.mkdir(parents=True, exist_ok=True)

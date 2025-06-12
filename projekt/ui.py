@@ -1,7 +1,6 @@
-# ui.py – Kommandozeilenoberfläche
-
 import threading
 import sys
+import time
 
 def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     handle = config.handle
@@ -22,6 +21,14 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     known_peers = {}
     stop_event = threading.Event()
 
+    # --- Beacon: re-announce JOIN every 5 s so late arrivals see us ---
+    def join_beacon():
+        while not stop_event.is_set():
+            time.sleep(5)
+            pipe_disc_cmd.send(("join", handle, tcp_port))
+
+    threading.Thread(target=join_beacon, daemon=True).start()
+
     # 3a) Discovery-Listener-Thread
     def disc_listener():
         nonlocal known_peers
@@ -33,7 +40,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             if evt[0] == "users":
                 known_peers = evt[1]
                 print("\n[Discovery] Bekannte Teilnehmer:")
-                for h,(ip,port) in known_peers.items():
+                for h, (ip, port) in known_peers.items():
                     print(f"  {h}: {ip}:{port}")
             elif evt[0] == "error":
                 print(f"\n[Discovery Fehler] {evt[1]}")
@@ -55,7 +62,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                 print(f"\n[Network Fehler] {evt[1]}")
 
     t1 = threading.Thread(target=disc_listener, daemon=True)
-    t2 = threading.Thread(target=net_listener,  daemon=True)
+    t2 = threading.Thread(target=net_listener, daemon=True)
     t1.start()
     t2.start()
 
@@ -73,24 +80,26 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             rest  = parts[1] if len(parts) > 1 else ""
 
             if cmd == "msg":
-                to, text = rest.split(" ",1)
+                to, text = rest.split(" ", 1)
                 if to in known_peers:
                     ip, pr = known_peers[to]
                     pipe_net_cmd.send(("send_msg", handle, to, text, ip, pr))
+                    print(f"Nachricht an {to} gesendet.")
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
             elif cmd == "img":
-                to, path = rest.split(" ",1)
+                to, path = rest.split(" ", 1)
                 if to in known_peers:
                     ip, pr = known_peers[to]
                     pipe_net_cmd.send(("send_img", handle, to, path, ip, pr))
+                    print(f"Bild an {to} gesendet.")
                 else:
                     print("Unbekannter Nutzer. Erst 'who' ausführen.")
 
             elif cmd == "allmsg":
                 text = rest
-                for to,(ip,pr) in known_peers.items():
+                for to, (ip, pr) in known_peers.items():
                     if to != handle:
                         pipe_net_cmd.send(("send_msg", handle, to, text, ip, pr))
                 print("Nachricht an alle gesendet.")
@@ -104,9 +113,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             elif cmd in ("quit", "exit"):
                 pipe_disc_cmd.send(("leave", handle))
                 print("Chat beendet.")
-                # Threads stoppen und sauber aussteigen
                 stop_event.set()
-                # kurz warten, damit Threads aufwachen
                 t1.join(timeout=0.1)
                 t2.join(timeout=0.1)
                 sys.exit(0)
