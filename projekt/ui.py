@@ -1,17 +1,20 @@
-# ui.py – Kommandozeilenoberfläche
-
 import threading
 import sys
-from colorama import init, Fore, Style # Für farbigen Text
+from colorama import init, Fore, Style  # Für farbigen Text
 
-# Initialisiere Farbsystem
 init(autoreset=True)
 
-
 def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
+    """
+    @brief Startet die Kommandozeilen-Benutzerschnittstelle des Chat-Clients.
+    @param pipe_net_cmd Pipe zur Kommunikation mit dem Netzwerkprozess (Befehle senden).
+    @param pipe_net_evt Pipe zur Kommunikation mit dem Netzwerkprozess (Events empfangen).
+    @param pipe_disc_cmd Pipe zur Kommunikation mit dem Discovery-Prozess (Befehle senden).
+    @param pipe_disc_evt Pipe zur Kommunikation mit dem Discovery-Prozess (Events empfangen).
+    @param config Konfigurationsobjekt mit Nutzerparametern.
+    """
     handle = config.handle
 
-    # 1) Auf TCP-Port warten
     print("Starte Network-Service, warte auf TCP-Port …")
     while True:
         evt = pipe_net_evt.recv()
@@ -20,14 +23,12 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             print(f"[System] Network hört auf TCP-Port {tcp_port}")
             break
 
-    # 2) Automatisches JOIN & WHO
     pipe_disc_cmd.send(("join", handle, tcp_port))
     pipe_disc_cmd.send(("who",))
 
     known_peers = {}
     stop_event = threading.Event()
 
-    # 3a) Discovery-Listener-Thread
     def disc_listener():
         nonlocal known_peers
         while not stop_event.is_set():
@@ -43,7 +44,6 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             elif evt[0] == "error":
                 print(f"\n[Discovery Fehler] {evt[1]}")
 
-    # 3b) Network-Listener-Thread
     def net_listener():
         while not stop_event.is_set():
             try:
@@ -59,13 +59,11 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             elif evt[0] == "error":
                 print(f"\n[Network Fehler] {evt[1]}")
 
-    # Threads starten
     t1 = threading.Thread(target=disc_listener, daemon=True)
     t2 = threading.Thread(target=net_listener, daemon=True)
     t1.start()
     t2.start()
 
-    # 4) Kommando-Eingabe
     print(f"\n{Fore.LIGHTGREEN_EX}Willkommen im Chat, {handle}!")
     print(f"{Fore.LIGHTYELLOW_EX}Befehle: msg <handle> <text>, img <handle> <pfad>, allmsg <text>, who, leave, quit")
 

@@ -1,5 +1,3 @@
-# config.py – Verwaltung der TOML-Konfiguration
-
 import tomllib
 import toml
 from pathlib import Path
@@ -8,11 +6,11 @@ class Config:
     """
     Lädt und verwaltet die TOML-Konfiguration für den Chat-Client.
     Attributes:
-        handle: str               - eigener Nutzername
-        port_range: tuple[int,int] - Portbereich für TCP-Server (inklusive)
-        whoisport: int            - UDP-Port für Discovery JOIN/WHO/LEAVE
-        autoreply: str            - optionaler Auto-Reply-Text
-        imagepath: Path           - Verzeichnis für empfangene Bilder
+        handle: str                – eigener Nutzername
+        port_range: tuple[int,int] – Portbereich für TCP/UDP-Server (inklusive)
+        whoisport: int             – UDP-Port für Discovery JOIN/WHO/LEAVE
+        autoreply: str             – optionaler Auto-Reply-Text
+        imagepath: Path            – Verzeichnis für empfangene Bilder
     """
     def __init__(self, path: str):
         self.path = Path(path)
@@ -21,11 +19,13 @@ class Config:
         self._load()
 
     def _load(self) -> None:
-        # Einlesen mit tomllib (Standard ab Python 3.11)
+        """
+        @brief Interne Methode zum Einlesen und Verarbeiten der TOML-Datei.
+        @raises KeyError Falls Pflichtfelder fehlen.
+        """
         with self.path.open('rb') as f:
             data = tomllib.load(f)
 
-        # Pflichtfelder
         try:
             self.handle = data['handle']
             port_list = data['port']
@@ -34,14 +34,15 @@ class Config:
         except KeyError as e:
             raise KeyError(f"Fehlendes Pflichtfeld in Config: {e}")
 
-        # Optionale Felder
         self.autoreply = data.get('autoreply', '')
         img_dir = data.get('imagepath', 'images')
         self.imagepath = Path(img_dir)
         self.imagepath.mkdir(parents=True, exist_ok=True)
 
     def save(self) -> None:
-        # Änderungen in die TOML-Datei zurückschreiben
+        """
+        @brief Schreibt aktuelle Konfiguration zurück in die TOML-Datei.
+        """
         data = {
             'handle': self.handle,
             'port': list(self.port_range),

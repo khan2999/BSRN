@@ -1,5 +1,14 @@
-handle    = "caroline"
+handle    = "Caroline"
 port      = [5013, 5013]     # lokaler UDP-Port 5013
 whoisport = 4000             # Discovery‐Port
 autoreply = "Bin gerade nicht da."
 imagepath = "images"         # Ordner für empfangene Bilder
+
+
+#python3 discovery_main.py caroline.toml 8000 \
+#  > logs/caroline.discovery.log 2>&1 &
+#
+#python3 network_main.py   caroline.toml 8001 \
+#  > logs/caroline.network.log   2>&1 &
+#
+#python3 main_ui.py caroline.toml 8000 8001

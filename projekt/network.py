@@ -1,21 +1,16 @@
-# network.py – Versenden und Empfangen von Nachrichten (SLCP) über TCP
+# network.py – Versenden und Empfangen von Nachrichten (SLCP) über TCP/UDP
 
 import socket
 import threading
 import time
 from pathlib import Path
 
-
 def run_network_service(pipe_cmd, pipe_evt, config):
     """
-    pipe_cmd: UI → Network
-      - ("send_msg", from_handle, to_handle, text, ip, port)
-      - ("send_img", from_handle, to_handle, filepath, ip, port)
-    pipe_evt: Network → UI
-      - ("tcp_port", bound_port)
-      - ("msg", sender, text)
-      - ("img", sender, saved_filepath)
-      - ("error", str)
+    @brief Netzwerkdienst: Empfängt und sendet SLCP-Nachrichten (MSG, IMG) per TCP und UDP.
+    @param pipe_cmd Pipe für eingehende Befehle vom UI-Prozess.
+    @param pipe_evt Pipe für ausgehende Ereignisse an den UI-Prozess.
+    @param config Konfigurationsobjekt (Ports, Handle, Bildverzeichnis etc.).
     """
     handle = config.handle
     image_dir = Path(config.imagepath)
@@ -49,11 +44,15 @@ def run_network_service(pipe_cmd, pipe_evt, config):
         pass
     udp_sock.bind(('', bound))
 
-    # Informiere UI über den Port
+    # Informiere UI über den gewählten TCP-Port
     pipe_evt.send(("tcp_port", bound))
 
-    # Handler für eingehende TCP-Verbindungen (Text-Nachrichten)
+    # --- Handler für eingehende TCP-Verbindungen ---
     def handle_tcp(conn):
+        """
+        @brief Bearbeitet eingehende TCP-Verbindungen mit SLCP-Textnachrichten.
+        @param conn Aktive TCP-Verbindung (Socket).
+        """
         try:
             header = b''
             while not header.endswith(b'\n'):
@@ -61,6 +60,7 @@ def run_network_service(pipe_cmd, pipe_evt, config):
                 if not c:
                     return
                 header += c
+
             parts = header.decode().strip().split(" ", 2)
             cmd, sender = parts[0], parts[1] if len(parts) > 1 else ''
             if cmd == 'MSG':
@@ -71,16 +71,23 @@ def run_network_service(pipe_cmd, pipe_evt, config):
         finally:
             conn.close()
 
-    # TCP-Listener-Thread
-    def tcp_listener():
+    # --- TCP-Listener-Thread ---
+    def tcp_listener(server_socket):
+        """
+        @brief Akzeptiert eingehende TCP-Verbindungen in einer Endlosschleife.
+        @param server_socket Der gebundene TCP-Server-Socket.
+        """
         while True:
-            conn, _ = tcp_srv.accept()
+            conn, _ = server_socket.accept()
             threading.Thread(target=handle_tcp, args=(conn,), daemon=True).start()
 
-    threading.Thread(target=tcp_listener, daemon=True).start()
+    threading.Thread(target=tcp_listener, args=(tcp_srv,), daemon=True).start()
 
-    # UDP-Listener-Thread (Bild-Empfang)
+    # --- UDP-Listener-Thread (Bild-Empfang) ---
     def udp_listener():
+        """
+        @brief Bearbeitet eingehende UDP-Pakete für Bildübertragung.
+        """
         while True:
             data, addr = udp_sock.recvfrom(65535)
             if data.startswith(b"IMG"):
@@ -90,9 +97,11 @@ def run_network_service(pipe_cmd, pipe_evt, config):
                     _, sender, size_s = parts
                     size = int(size_s)
                     img_data = rest
+                    # Lese nach, bis die gesamte Bildgröße empfangen ist
                     while len(img_data) < size:
                         chunk, _ = udp_sock.recvfrom(65535)
                         img_data += chunk
+                    # Speichere das Bild ab
                     filename = image_dir / f"{sender}_{int(time.time())}.jpg"
                     with open(filename, "wb") as f:
                         f.write(img_data)
@@ -100,7 +109,7 @@ def run_network_service(pipe_cmd, pipe_evt, config):
 
     threading.Thread(target=udp_listener, daemon=True).start()
 
-    # 3) Ausgehende Befehle
+    # --- 3) Ausgehende Befehle verarbeiten ---
     while True:
         cmd = pipe_cmd.recv()
         if not isinstance(cmd, tuple):
@@ -117,8 +126,10 @@ def run_network_service(pipe_cmd, pipe_evt, config):
                 _, frm, to, path, ip, port = cmd
                 img_data = Path(path).read_bytes()
                 hdr = f"IMG {frm} {len(img_data)}\n".encode()
+                # Sende Header + erste Datenchunk
                 udp_sock.sendto(hdr + img_data[:60000], (ip, port))
                 offset = 60000
+                # Sende restliche Daten in 60000-Byte-Stücken
                 while offset < len(img_data):
                     udp_sock.sendto(img_data[offset:offset+60000], (ip, port))
                     offset += 60000

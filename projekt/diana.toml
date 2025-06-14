@@ -1,5 +1,14 @@
-handle    = "diana"
+handle    = "Diana"
 port      = [5014, 5014]     # lokaler UDP-Port 5014
 whoisport = 4000
 autoreply = "Bin gleich zurück."
 imagepath = "images"
+
+#python3 discovery_main.py diana.toml 9000 \
+#  > logs/diana.discovery.log 2>&1 &
+#
+#python3 network_main.py   diana.toml 9001 \
+#  > logs/diana.network.log   2>&1 &
+#
+#python3 main_ui.py diana.toml 9000 9001
+#

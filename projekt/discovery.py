@@ -1,5 +1,3 @@
-# discovery.py – Broadcast-basiertes Teilnehmer-Discovery
-
 import socket
 import threading
 from typing import Dict, Tuple
@@ -7,8 +5,11 @@ from typing import Dict, Tuple
 BROADCAST_ADDR = '255.255.255.255'
 BUFFER_SIZE = 4096
 
-
 def _get_local_ip() -> str:
+    """
+    @brief Liefert die lokale IP-Adresse des aktuellen Hosts.
+    @return Lokale IPv4-Adresse als String.
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(('8.8.8.8', 80))
@@ -18,8 +19,13 @@ def _get_local_ip() -> str:
     finally:
         s.close()
 
-
 def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
+    """
+    @brief Discovery-Dienst: Verarbeitet JOIN-, WHO- und LEAVE-Nachrichten über UDP-Broadcast.
+    @param pipe_cmd Pipe mit Befehlen vom UI-Prozess.
+    @param pipe_evt Pipe für Rückmeldungen an UI (bekannte Nutzer).
+    @param config Konfiguration mit Whois-Port und Benutzername.
+    """
     whois_port = config.whoisport
     registry: Dict[str, Tuple[str, int]] = {}
     last_registry: Dict[str, Tuple[str, int]] = {}
@@ -51,11 +57,9 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
                     _, h, p = msg.split()
                     registry[h] = (addr[0], int(p))
 
-                    # Antwort an neuen Teilnehmer mit allen bekannten
                     entries = [f"{h2} {ip} {pr}" for h2, (ip, pr) in registry.items()]
                     sock.sendto(('KNOWNUSERS ' + ','.join(entries) + '\n').encode('utf-8'), addr)
 
-                    # JOIN an andere weiterleiten
                     join_msg = f"JOIN {h} {p}\n".encode('utf-8')
                     for peer_h, (peer_ip, peer_pr) in registry.items():
                         if peer_h != h:
@@ -84,7 +88,6 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
 
     threading.Thread(target=listener, daemon=True).start()
 
-    # Kommandos verarbeiten
     while True:
         cmd = pipe_cmd.recv()
         if not isinstance(cmd, tuple) or not cmd:
