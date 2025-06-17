@@ -4,6 +4,11 @@ whoisport = 4000
 autoreply = "Bin gerade nicht da."
 imagepath = "images"         # oder "./images", beides geht
 
+[colors]
+Alice    = "RED"
+Bob      = "GREEN"
+Caroline = "BLUE"
+Diana    = "MAGENTA"
 
 #python3 discovery_main.py bob.toml 7000 \
 #  > logs/bob.discovery.log 2>&1 &

@@ -1,3 +1,5 @@
+# config.py
+
 import tomllib
 import toml
 from pathlib import Path
@@ -6,7 +8,7 @@ class Config:
     """
     @file config.py
     @brief Lädt und speichert die TOML-Konfiguration für den Chat-Client.
-    @details Enthält `handle`, `port_range`, `whoisport`, `autoreply`, `imagepath`.
+    @details Enthält handle, port_range, whoisport, autoreply, imagepath und optional handle_colors.
     """
 
     def __init__(self, path: str):
@@ -21,36 +23,44 @@ class Config:
 
     def _load(self) -> None:
         """
-        @brief Interne Methode: Läd den TOML-Inhalt in Attribute.
+        @brief Interne Methode: Lädt den TOML-Inhalt in Attribute.
         @throws KeyError falls Pflichtfelder fehlen.
         """
-        with self.path.open('rb') as f:
+        with self.path.open("rb") as f:
             data = tomllib.load(f)
 
         try:
-            self.handle     = data['handle']
-            port_list       = data['port']
+            self.handle = data["handle"]
+            port_list = data["port"]
             self.port_range = (int(port_list[0]), int(port_list[1]))
-            self.whoisport  = int(data['whoisport'])
+            self.whoisport = int(data["whoisport"])
         except KeyError as e:
             raise KeyError(f"Fehlendes Config-Feld: {e}")
 
-        self.autoreply = data.get('autoreply', '')
-        img_dir = data.get('imagepath', 'images')
+        self.autoreply = data.get("autoreply", "")
+        img_dir = data.get("imagepath", "images")
         self.imagepath = Path(img_dir)
         self.imagepath.mkdir(parents=True, exist_ok=True)
+
+        # Farben-Mapping aus der TOML (optional)
+        # Erwartet eine Sektion [colors] mit Handle="FARBE"
+        # Beispiel in alice.toml:
+        # [colors]
+        # Alice = "RED"
+        self.handle_colors: dict[str, str] = data.get("colors", {})
 
     def save(self) -> None:
         """
         @brief Speichert aktuelle Werte zurück in die TOML-Datei.
         """
         data = {
-            'handle':    self.handle,
-            'port':      list(self.port_range),
-            'whoisport': self.whoisport,
-            'autoreply': self.autoreply,
-            'imagepath': str(self.imagepath),
+            "handle": self.handle,
+            "port": list(self.port_range),
+            "whoisport": self.whoisport,
+            "autoreply": self.autoreply,
+            "imagepath": str(self.imagepath),
+            "colors": self.handle_colors,
         }
         toml_text = toml.dumps(data)
-        with self.path.open('w', encoding='utf-8') as f:
+        with self.path.open("w", encoding="utf-8") as f:
             f.write(toml_text)

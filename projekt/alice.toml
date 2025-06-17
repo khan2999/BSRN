@@ -4,6 +4,12 @@ whoisport = 4000
 autoreply = "Ich bin nicht da."
 imagepath = "images"
 
+[colors]
+Alice    = "RED"
+Bob      = "GREEN"
+Caroline = "BLUE"
+Diana    = "MAGENTA"
+
 ## Discovery im Hintergrund, Log in logs/alice.discovery.log
 #python3 discovery_main.py alice.toml 6000 \
 #  > logs/alice.discovery.log 2>&1 &
