@@ -64,10 +64,10 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     threading.Thread(target=net_listener, daemon=True).start()
 
     print(f"\n{Fore.LIGHTGREEN_EX}Willkommen {handle}!")
-    print(f"{Fore.LIGHTYELLOW_EX}Befehle: msg, img, allmsg, who, leave, config, quit")
+    print(f"{Fore.LIGHTYELLOW_EX}Befehle: msg <handle> <text>, img <handle> <datei-pfad>, allmsg <text>, who, leave, config, quit")
 
     while True:
-        line = input(">> ").strip()
+        line = input("Eingabe: ").strip()
         if not line: continue
         parts = line.split(" ",1)
         cmd   = parts[0]
@@ -91,7 +91,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
 
             elif cmd == "who":
                 pipe_disc_cmd.send(("who",))
-                print("\n[Discovery] manuell:")
+                print("\n[Discovery] Bekannte Teilnehmer (manuell):")
                 for h,(ip,pr) in known_peers.items():
                     print(f"  {h}: {ip}:{pr}")
 
