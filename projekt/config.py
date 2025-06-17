@@ -4,35 +4,36 @@ from pathlib import Path
 
 class Config:
     """
-    Lädt und verwaltet die TOML-Konfiguration für den Chat-Client.
-    Attributes:
-        handle: str                – eigener Nutzername
-        port_range: tuple[int,int] – Portbereich für TCP/UDP-Server (inklusive)
-        whoisport: int             – UDP-Port für Discovery JOIN/WHO/LEAVE
-        autoreply: str             – optionaler Auto-Reply-Text
-        imagepath: Path            – Verzeichnis für empfangene Bilder
+    @file config.py
+    @brief Lädt und speichert die TOML-Konfiguration für den Chat-Client.
+    @details Enthält `handle`, `port_range`, `whoisport`, `autoreply`, `imagepath`.
     """
+
     def __init__(self, path: str):
+        """
+        @brief Konstruktor, lädt die Datei.
+        @param[in] path Pfad zur TOML-Datei.
+        """
         self.path = Path(path)
         if not self.path.is_file():
-            raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {self.path}")
+            raise FileNotFoundError(f"Config nicht gefunden: {self.path}")
         self._load()
 
     def _load(self) -> None:
         """
-        @brief Interne Methode zum Einlesen und Verarbeiten der TOML-Datei.
-        @raises KeyError Falls Pflichtfelder fehlen.
+        @brief Interne Methode: Läd den TOML-Inhalt in Attribute.
+        @throws KeyError falls Pflichtfelder fehlen.
         """
         with self.path.open('rb') as f:
             data = tomllib.load(f)
 
         try:
-            self.handle = data['handle']
-            port_list = data['port']
+            self.handle     = data['handle']
+            port_list       = data['port']
             self.port_range = (int(port_list[0]), int(port_list[1]))
-            self.whoisport = int(data['whoisport'])
+            self.whoisport  = int(data['whoisport'])
         except KeyError as e:
-            raise KeyError(f"Fehlendes Pflichtfeld in Config: {e}")
+            raise KeyError(f"Fehlendes Config-Feld: {e}")
 
         self.autoreply = data.get('autoreply', '')
         img_dir = data.get('imagepath', 'images')
@@ -41,11 +42,11 @@ class Config:
 
     def save(self) -> None:
         """
-        @brief Schreibt aktuelle Konfiguration zurück in die TOML-Datei.
+        @brief Speichert aktuelle Werte zurück in die TOML-Datei.
         """
         data = {
-            'handle': self.handle,
-            'port': list(self.port_range),
+            'handle':    self.handle,
+            'port':      list(self.port_range),
             'whoisport': self.whoisport,
             'autoreply': self.autoreply,
             'imagepath': str(self.imagepath),
