@@ -6,7 +6,7 @@
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, scrolledtext, messagebox, colorchooser
+from tkinter import ttk, filedialog, scrolledtext, messagebox
 import threading
 import multiprocessing
 import time
@@ -38,8 +38,8 @@ class ChatClientGUI:
         """
         self.config = Config(config_path)
         self.handle = self.config.handle
-        # Farbzuweisungen pro Handle: alle Keys lowercase
         raw = getattr(self.config, 'handle_colors', {})
+        # keys auf lowercase normalisieren
         self.handle_colors = {h.lower(): c for h, c in raw.items()}
 
     def _setup_services(self) -> None:
@@ -88,7 +88,7 @@ class ChatClientGUI:
 
     def _create_widgets(self) -> None:
         """
-        @brief Erstellt Teilnehmerliste, Chat-Display und Eingabefelder.
+        @brief Erstellt Teilnehmerliste, Chat-Display, Eingabefelder und Selektionsanzeige.
         """
         # Teilnehmerliste
         self.peers = {}
@@ -96,6 +96,15 @@ class ChatClientGUI:
         self.peer_list.heading("ip", text="IP-Adresse")
         self.peer_list.heading("port", text="Port")
         self.peer_list.grid(row=0, column=0, rowspan=3, sticky="nswe", padx=5, pady=5)
+        self.peer_list.bind('<<TreeviewSelect>>', self.on_peer_select)
+
+        # Chat-Anzeige
+        self.chat_display = scrolledtext.ScrolledText(self.root, state=tk.DISABLED)
+        self.chat_display.grid(row=0, column=1, columnspan=2, sticky="nswe", padx=5, pady=5)
+
+        # Selektionsanzeige unter Peer-Liste
+        self.selected_label = tk.Label(self.root, text="Ausgewählter Peer: --", anchor='w')
+        self.selected_label.grid(row=3, column=0, columnspan=3, sticky="we", padx=5, pady=2)
 
         # Farb-Tags für Peer-Liste
         for tag, color in self.handle_colors.items():
@@ -103,10 +112,6 @@ class ChatClientGUI:
                 self.peer_list.tag_configure(tag, foreground=color)
             except Exception:
                 pass
-
-        # Chat-Anzeige
-        self.chat_display = scrolledtext.ScrolledText(self.root, state=tk.DISABLED)
-        self.chat_display.grid(row=0, column=1, columnspan=2, sticky="nswe", padx=5, pady=5)
 
         # Farb-Tags für Chat-Nachrichten
         for tag, color in self.handle_colors.items():
@@ -117,11 +122,23 @@ class ChatClientGUI:
 
         # Eingabe und Buttons
         self.entry_text = tk.Entry(self.root)
-        self.entry_text.grid(row=1, column=1, sticky="we", padx=5)
+        self.entry_text.grid(row=4, column=1, sticky="we", padx=5)
         self.send_btn = tk.Button(self.root, text="Senden", command=self.send_message)
-        self.send_btn.grid(row=1, column=2, sticky="we", padx=5)
+        self.send_btn.grid(row=4, column=2, sticky="we", padx=5)
         self.img_btn = tk.Button(self.root, text="Bild senden", command=self.send_image)
-        self.img_btn.grid(row=2, column=1, columnspan=2, sticky="we", padx=5)
+        self.img_btn.grid(row=5, column=1, columnspan=2, sticky="we", padx=5)
+
+    def on_peer_select(self, event) -> None:
+        """
+        @brief Aktualisiert das Label mit ausgewähltem Peer und Farbe.
+        """
+        sel = self.peer_list.selection()
+        if sel:
+            name = sel[0]
+            color = self.handle_colors.get(name.lower(), 'black')
+            self.selected_label.config(text=f"Ausgewählter Peer: {name}", fg=color)
+        else:
+            self.selected_label.config(text="Ausgewählter Peer: --", fg='black')
 
     def _start_listeners(self) -> None:
         self.stop_event = threading.Event()
@@ -233,6 +250,7 @@ class ChatClientGUI:
         self.net_proc.terminate()
         self.disc_proc.terminate()
         self.root.destroy()
+
 
 def start_gui(config_path: str) -> None:
     """
