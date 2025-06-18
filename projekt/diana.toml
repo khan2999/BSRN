@@ -10,11 +10,11 @@ Bob      = "GREEN"
 Caroline = "BLUE"
 Diana    = "MAGENTA"
 
-#python3 discovery_main.py diana.toml 9000 \
-#  > logs/diana.discovery.log 2>&1 &
-#
-#python3 network_main.py   diana.toml 9001 \
-#  > logs/diana.network.log   2>&1 &
-#
-#python3 main_ui.py diana.toml 9000 9001
-#
+#bash im Terminal von Diana, um ihr Chat zu straten:
+
+#rm -f /tmp/chat_discovery_9000.lock
+#python3 discovery_main.py diana.toml    9000 > logs/diana.discovery.log    2>&1 & sleep 0.2
+#python3 network_main.py   diana.toml    9001 > logs/diana.network.log      2>&1 & sleep 0.2
+#python3 main_ui.py        diana.toml    9000 9001
+
+
