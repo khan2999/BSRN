@@ -1,0 +1,23 @@
+handle    = "Alice"
+port      = [5011, 5011]    # Port-Range (hier nur Port 5011)
+whoisport = 4000
+autoreply = "Ich bin nicht da."
+imagepath = "images"
+
+[colors]
+Alice    = "RED"
+Bob      = "GREEN"
+Caroline = "BLUE"
+Diana    = "MAGENTA"
+
+## Discovery im Hintergrund, Log in logs/alice.discovery.log
+#python3 discovery_main.py alice.toml 6000 \
+#  > logs/alice.discovery.log 2>&1 &
+#
+## Network im Hintergrund, Log in logs/alice.network.log
+#python3 network_main.py   alice.toml 6001 \
+#  > logs/alice.network.log   2>&1 &
+#
+## UI im Vordergrund – hier interagierst du
+#python3 main_ui.py alice.toml 6000 6001
+#
