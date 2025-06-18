@@ -1,12 +1,12 @@
 """
  * @brief Grafische Oberfläche für den Chat-Client unter Verwendung von tkinter.
-  @details Startet Discovery- und Network-Dienste in Hintergrundprozessen,
-           zeigt Teilnehmerliste und Nachrichtenfenster an,
-           ermöglicht Versenden von Textnachrichten und Bildern.
+ * @details Startet Discovery- und Network-Dienste in Hintergrundprozessen,
+ *          zeigt Teilnehmerliste und Nachrichtenfenster an,
+ *          ermöglicht Versenden von Textnachrichten und Bildern.
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, scrolledtext, messagebox
+from tkinter import ttk, filedialog, scrolledtext, messagebox, colorchooser
 import threading
 import multiprocessing
 import time
@@ -25,53 +25,11 @@ class ChatClientGUI:
         @brief Konstruktor: Initialisiert GUI, Pipes und Prozesse.
         @param[in] config_path Pfad zur TOML-Konfigurationsdatei.
         """
-        # Laden der Konfiguration
         self.load_config(config_path)
-
-        # Pipes für Discovery und Network
-        self.net_cmd, net_recv = multiprocessing.Pipe()
-        net_send, self.net_evt = multiprocessing.Pipe()
-        self.disc_cmd, disc_recv = multiprocessing.Pipe()
-        disc_send, self.disc_evt = multiprocessing.Pipe()
-
-        # Hintergrundprozesse starten
-        self.disc_proc = multiprocessing.Process(
-            target=run_discovery_service,
-            args=(disc_recv, disc_send, self.config),
-            daemon=True
-        )
-        self.disc_proc.start()
-        time.sleep(0.1)  # Discovery startet
-
-        self.net_proc = multiprocessing.Process(
-            target=run_network_service,
-            args=(net_recv, net_send, self.config),
-            daemon=True
-        )
-        self.net_proc.start()
-
-        # GUI Aufbau
-        self.root = tk.Tk()
-        self.root.title(f"Chat-Client: {self.config.handle}")
-        self._create_menu()
-        self._create_widgets()
-
-        # Layout-Gewichtung
-        self.root.columnconfigure(1, weight=1)
-        self.root.rowconfigure(0, weight=1)
-
-        # Hintergrund-Threads für Events
-        self.stop_event = threading.Event()
-        threading.Thread(target=self.disc_listener, daemon=True).start()
-        threading.Thread(target=self.net_listener, daemon=True).start()
-
-        # Automatisches JOIN und WHO
-        self.disc_cmd.send(("join", self.config.handle, self.config.port_range[0]))
-        time.sleep(0.1)
-        self.disc_cmd.send(("who",))
-
-        # Hauptloop starten
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self._setup_services()
+        self._build_gui()
+        self._start_listeners()
+        self._auto_join()
         self.root.mainloop()
 
     def load_config(self, config_path: str) -> None:
@@ -80,11 +38,46 @@ class ChatClientGUI:
         """
         self.config = Config(config_path)
         self.handle = self.config.handle
+        # Farbzuweisungen pro Handle: alle Keys lowercase
+        raw = getattr(self.config, 'handle_colors', {})
+        self.handle_colors = {h.lower(): c for h, c in raw.items()}
+
+    def _setup_services(self) -> None:
+        """
+        @brief Initialisiert Pipes und startet Discovery- und Network-Prozesse.
+        """
+        self.net_cmd, net_recv = multiprocessing.Pipe()
+        net_send, self.net_evt = multiprocessing.Pipe()
+        self.disc_cmd, disc_recv = multiprocessing.Pipe()
+        disc_send, self.disc_evt = multiprocessing.Pipe()
+
+        self.disc_proc = multiprocessing.Process(
+            target=run_discovery_service,
+            args=(disc_recv, disc_send, self.config),
+            daemon=True
+        )
+        self.disc_proc.start()
+        time.sleep(0.1)
+
+        self.net_proc = multiprocessing.Process(
+            target=run_network_service,
+            args=(net_recv, net_send, self.config),
+            daemon=True
+        )
+        self.net_proc.start()
+
+    def _build_gui(self) -> None:
+        """
+        @brief Setzt alle GUI-Komponenten auf, inklusive Farbcodierung.
+        """
+        self.root = tk.Tk()
+        self.root.title(f"Chat-Client: {self.handle}")
+        self._create_menu()
+        self._create_widgets()
+        self.root.columnconfigure(1, weight=1)
+        self.root.rowconfigure(0, weight=1)
 
     def _create_menu(self) -> None:
-        """
-        @brief Erstellt die Menüleiste mit Datei-Optionen.
-        """
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_command(label="Konfig laden", command=self._open_config_dialog)
@@ -95,48 +88,63 @@ class ChatClientGUI:
 
     def _create_widgets(self) -> None:
         """
-        @brief Erstellt die Haupt-Widgets der GUI.
+        @brief Erstellt Teilnehmerliste, Chat-Display und Eingabefelder.
         """
         # Teilnehmerliste
         self.peers = {}
-        self.peer_list = ttk.Treeview(self.root, columns=("ip", "port"), show="headings")
+        self.peer_list = ttk.Treeview(self.root, columns=("ip","port"), show="headings")
         self.peer_list.heading("ip", text="IP-Adresse")
         self.peer_list.heading("port", text="Port")
         self.peer_list.grid(row=0, column=0, rowspan=3, sticky="nswe", padx=5, pady=5)
 
-        # Nachrichtenfenster
+        # Farb-Tags für Peer-Liste
+        for tag, color in self.handle_colors.items():
+            try:
+                self.peer_list.tag_configure(tag, foreground=color)
+            except Exception:
+                pass
+
+        # Chat-Anzeige
         self.chat_display = scrolledtext.ScrolledText(self.root, state=tk.DISABLED)
         self.chat_display.grid(row=0, column=1, columnspan=2, sticky="nswe", padx=5, pady=5)
 
-        # Eingabezeile
+        # Farb-Tags für Chat-Nachrichten
+        for tag, color in self.handle_colors.items():
+            try:
+                self.chat_display.tag_configure(tag, foreground=color)
+            except Exception:
+                pass
+
+        # Eingabe und Buttons
         self.entry_text = tk.Entry(self.root)
         self.entry_text.grid(row=1, column=1, sticky="we", padx=5)
         self.send_btn = tk.Button(self.root, text="Senden", command=self.send_message)
         self.send_btn.grid(row=1, column=2, sticky="we", padx=5)
-
-        # Bild senden
         self.img_btn = tk.Button(self.root, text="Bild senden", command=self.send_image)
         self.img_btn.grid(row=2, column=1, columnspan=2, sticky="we", padx=5)
 
+    def _start_listeners(self) -> None:
+        self.stop_event = threading.Event()
+        threading.Thread(target=self.disc_listener, daemon=True).start()
+        threading.Thread(target=self.net_listener, daemon=True).start()
+
+    def _auto_join(self) -> None:
+        self.disc_cmd.send(("join", self.handle, self.config.port_range[0]))
+        time.sleep(0.1)
+        self.disc_cmd.send(("who",))
+
     def _open_config_dialog(self) -> None:
-        """
-        @brief Öffnet einen Dateidialog zum Laden einer neuen TOML-Konfigurationsdatei.
-        """
         path = filedialog.askopenfilename(
             title="Konfigurationsdatei wählen",
-            filetypes=[("TOML-Dateien", "*.toml")],
-            initialdir=os.path.join(os.getcwd(), 'config')
+            filetypes=[("TOML-Dateien","*.toml")],
+            initialdir=os.path.join(os.getcwd(),'config')
         )
         if path:
-            messagebox.showinfo("Neustart nötig", "Die App wird mit der neuen Konfiguration neu gestartet.")
+            messagebox.showinfo("Neustart nötig","App wird neu gestartet.")
             self.on_close()
             os.execv(sys.executable, [sys.executable, __file__, path])
 
     def disc_listener(self) -> None:
-        """
-        @brief Listener-Thread für Discovery-Ereignisse.
-        @details Aktualisiert die Teilnehmerliste, wenn sich diese ändert.
-        """
         last = {}
         while not self.stop_event.is_set():
             evt = self.disc_evt.recv()
@@ -148,10 +156,6 @@ class ChatClientGUI:
                     self.update_peer_list()
 
     def net_listener(self) -> None:
-        """
-        @brief Listener-Thread für Network-Ereignisse.
-        @details Zeigt empfangene Nachrichten und Bilder im Chatfenster an.
-        """
         while not self.stop_event.is_set():
             evt = self.net_evt.recv()
             if evt[0] == "msg":
@@ -168,32 +172,32 @@ class ChatClientGUI:
                 messagebox.showerror("Network-Fehler", evt[1])
 
     def update_peer_list(self) -> None:
-        """
-        @brief Aktualisiert die GUI-Liste der bekannten Peers.
-        """
         for item in self.peer_list.get_children():
             self.peer_list.delete(item)
         for h, (ip, pr) in self.peers.items():
-            self.peer_list.insert("", tk.END, iid=h, values=(ip, pr))
+            tag = h.lower() if h.lower() in self.handle_colors else None
+            tags = (tag,) if tag else ()
+            self.peer_list.insert("", tk.END, iid=h, values=(ip, pr), tags=tags)
 
     def display_message(self, sender: str, text: str) -> None:
         """
-        @brief Fügt eine neue Zeile im Chat-Display hinzu.
+        @brief Fügt eine neue Zeile im Chat-Display hinzu, gefärbt nach Handle.
         @param[in] sender Handle des Absenders.
-        @param[in] text Inhalt der Nachricht.
+        @param[in] text   Inhalt der Nachricht.
         """
         self.chat_display.config(state=tk.NORMAL)
-        self.chat_display.insert(tk.END, f"{sender}: {text}\n")
+        tag = sender.lower() if sender.lower() in self.handle_colors else None
+        if tag:
+            self.chat_display.insert(tk.END, f"{sender}: {text}\n", tag)
+        else:
+            self.chat_display.insert(tk.END, f"{sender}: {text}\n")
         self.chat_display.see(tk.END)
         self.chat_display.config(state=tk.DISABLED)
 
     def send_message(self) -> None:
-        """
-        @brief Sendet eine Textnachricht an den ausgewählten Peer.
-        """
         sel = self.peer_list.selection()
         if not sel:
-            messagebox.showwarning("Keine Auswahl", "Bitte einen Empfänger auswählen.")
+            messagebox.showwarning("Keine Auswahl","Bitte Empfänger auswählen.")
             return
         target = sel[0]
         text = self.entry_text.get().strip()
@@ -205,17 +209,14 @@ class ChatClientGUI:
         self.entry_text.delete(0, tk.END)
 
     def send_image(self) -> None:
-        """
-        @brief Wählt eine Bilddatei aus und sendet sie an den Peer.
-        """
         sel = self.peer_list.selection()
         if not sel:
-            messagebox.showwarning("Keine Auswahl", "Bitte einen Empfänger auswählen.")
+            messagebox.showwarning("Keine Auswahl","Bitte Empfänger auswählen.")
             return
         target = sel[0]
         path = filedialog.askopenfilename(
             title="Bild auswählen",
-            filetypes=[("JPEG", "*.jpg;*.jpeg"), ("PNG", "*.png"), ("Alle Dateien", "*")]
+            filetypes=[("JPEG","*.jpg;*.jpeg"),("PNG","*.png"),("Alle","*")]
         )
         if not path:
             return
@@ -224,10 +225,6 @@ class ChatClientGUI:
         self.display_message(self.handle, f"<Bild gesendet: {path}>")
 
     def on_close(self) -> None:
-        """
-        @brief Aufräumarbeiten beim Schließen der GUI.
-        @details Sendet LEAVE-Befehl und beendet Prozesse.
-        """
         try:
             self.disc_cmd.send(("leave", self.handle))
         except Exception:
@@ -237,19 +234,24 @@ class ChatClientGUI:
         self.disc_proc.terminate()
         self.root.destroy()
 
+def start_gui(config_path: str) -> None:
+    """
+    @brief Hilfsfunktion zum Programmstart der GUI.
+    @param[in] config_path Pfad zur TOML-Datei.
+    """
+    ChatClientGUI(config_path)
+
 if __name__ == '__main__':
-    # Ermöglicht Auswahl mehrerer TOML-Profile per Datei-Dialog
     if len(sys.argv) != 2:
-        root = tk.Tk()
-        root.withdraw()
+        root = tk.Tk(); root.withdraw()
         cfg = filedialog.askopenfilename(
-            title="Konfigurationsdatei wählen",
-            filetypes=[("TOML-Dateien", "*.toml")],
-            initialdir=os.path.join(os.getcwd(), 'config')
+            title="Konfig auswählen",
+            filetypes=[("TOML","*.toml")],
+            initialdir=os.path.join(os.getcwd(),'config')
         )
         root.destroy()
         if not cfg:
-            print("Keine Konfigurationsdatei ausgewählt.")
+            print("Keine Konfig ausgewählt.")
             sys.exit(1)
         sys.argv.append(cfg)
-    ChatClientGUI(sys.argv[1])
+    start_gui(sys.argv[1])
