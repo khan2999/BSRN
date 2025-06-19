@@ -1,5 +1,5 @@
 # ui.py – Kommandozeilen-Interface mit config edit, Bildbetrachter,
-# manuellem JOIN und Autoreply-Funktion mit einmaligem Reply pro Sender
+# manuellem JOIN und Autoreply-Funktion (aktiv erst nach manuellem Einschalten)
 
 import threading
 import sys
@@ -27,8 +27,9 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     @param pipe_disc_evt Pipe für Discovery-Antworten.
     @param config Konfigurationsobjekt mit handle, autoreply, imagepath, handle_colors.
     """
-    handle = config.handle                   # aktueller Benutzername
-    responded_peers: set[str] = set()        # merkt, wem wir bereits autoreplyt haben
+    handle = config.handle               # aktueller Benutzername
+    autoreply_enabled = False            # Autoreply startet deaktiviert
+    responded_peers: set[str] = set()    # merkt, wem wir bereits autoreplyt haben
 
     # Mapping Handle → ANSI-Farbe
     handle_to_color: dict[str, str] = {}
@@ -81,7 +82,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
             elif evt[0] == "error":
                 print(f"\n[Discovery Fehler] {evt[1]}")
 
-    # --- Network-Listener mit Autoreply und Self-Reply-Vermeidung ---
+    # --- Network-Listener mit bedingtem Autoreply ---
     def net_listener():
         while not stop_event.is_set():
             evt = pipe_net_evt.recv()
@@ -89,13 +90,14 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                 _, sender, text = evt
                 col = get_color(sender)
                 print(f"\n{col}{sender}{Style.RESET_ALL}> {text}")
-
-                # Autoreply nur einmal pro Sender:
-                # - Autoreply gesetzt
+                # Autoreply nur, wenn:
+                # - manuell eingeschaltet (autoreply_enabled)
+                # - Autoreply-Text gesetzt
                 # - Nachricht ≠ Autoreply-Text
                 # - Sender ≠ wir selbst
                 # - Noch nicht geantwortet
-                if (config.autoreply
+                if (autoreply_enabled
+                        and config.autoreply
                         and text != config.autoreply
                         and sender != handle
                         and sender not in responded_peers):
@@ -119,15 +121,14 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                 )
 
             elif evt[0] == "error":
-                print(f"\n[Network Fehler] {evt[1]}")
+                print(f"\n[Network Fehler] {evt[1]}\n")
 
-    # Listener-Threads starten
     threading.Thread(target=disc_listener, daemon=True).start()
     threading.Thread(target=net_listener, daemon=True).start()
 
     # Begrüßung in Grün und Befehlsübersicht in Gelb
     print(f"\n{Fore.GREEN}Willkommen im Chat, {handle}!{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}Befehle: msg <h> <t>, img <h> <p>, allmsg <t>, who, leave, join, config, quit{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}Befehle: msg <h> <t>, img <h> <p>, allmsg <t>, who, leave, join, config, autoreply, quit{Style.RESET_ALL}")
 
     # --- Haupt-Loop zur Verarbeitung von CLI-Kommandos ---
     while True:
@@ -188,6 +189,12 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                 pipe_disc_cmd.send(("join", handle, tcp_port))
                 pipe_disc_cmd.send(("who",))
                 print(f"[System] Handle geändert: {old_handle} → {handle}")
+
+            elif cmd == "autoreply":
+                # Manuelles Ein-/Ausschalten der Autoreply-Funktion
+                autoreply_enabled = not autoreply_enabled
+                state = "aktiviert" if autoreply_enabled else "deaktiviert"
+                print(f"Autoreply wurde {state}.")
 
             elif cmd in ("quit", "exit"):
                 pipe_disc_cmd.send(("leave", handle))
