@@ -38,8 +38,8 @@ class ChatClientGUI:
         """
         self.config = Config(config_path)
         self.handle = self.config.handle
+        # Farbzuweisungen pro Handle: keys lowercase
         raw = getattr(self.config, 'handle_colors', {})
-        # keys auf lowercase normalisieren
         self.handle_colors = {h.lower(): c for h, c in raw.items()}
 
     def _setup_services(self) -> None:
@@ -88,32 +88,31 @@ class ChatClientGUI:
 
     def _create_widgets(self) -> None:
         """
-        @brief Erstellt Teilnehmerliste, Chat-Display, Eingabefelder und Selektionsanzeige.
+        @brief Erstellt Teilnehmerliste, Chat-Display und Eingabefelder.
         """
-        # Teilnehmerliste
+        # Teilnehmerliste mit Name-Spalte
         self.peers = {}
-        self.peer_list = ttk.Treeview(self.root, columns=("ip","port"), show="headings")
+        self.peer_list = ttk.Treeview(self.root, columns=("ip","port","name"), show="headings")
         self.peer_list.heading("ip", text="IP-Adresse")
         self.peer_list.heading("port", text="Port")
+        self.peer_list.heading("name", text="Name")
+        self.peer_list.column("ip", width=120)
+        self.peer_list.column("port", width=60)
+        self.peer_list.column("name", width=100)
         self.peer_list.grid(row=0, column=0, rowspan=3, sticky="nswe", padx=5, pady=5)
         self.peer_list.bind('<<TreeviewSelect>>', self.on_peer_select)
 
-        # Chat-Anzeige
-        self.chat_display = scrolledtext.ScrolledText(self.root, state=tk.DISABLED)
-        self.chat_display.grid(row=0, column=1, columnspan=2, sticky="nswe", padx=5, pady=5)
-
-        # Selektionsanzeige unter Peer-Liste
-        self.selected_label = tk.Label(self.root, text="Ausgewählter Peer: --", anchor='w')
-        self.selected_label.grid(row=3, column=0, columnspan=3, sticky="we", padx=5, pady=2)
-
-        # Farb-Tags für Peer-Liste
+        # Peer-Liste Farb-Tags
         for tag, color in self.handle_colors.items():
             try:
                 self.peer_list.tag_configure(tag, foreground=color)
             except Exception:
                 pass
 
-        # Farb-Tags für Chat-Nachrichten
+        # Chat-Anzeige
+        self.chat_display = scrolledtext.ScrolledText(self.root, state=tk.DISABLED)
+        self.chat_display.grid(row=0, column=1, columnspan=2, sticky="nswe", padx=5, pady=5)
+        # Chat Farb-Tags
         for tag, color in self.handle_colors.items():
             try:
                 self.chat_display.tag_configure(tag, foreground=color)
@@ -122,15 +121,19 @@ class ChatClientGUI:
 
         # Eingabe und Buttons
         self.entry_text = tk.Entry(self.root)
-        self.entry_text.grid(row=4, column=1, sticky="we", padx=5)
+        self.entry_text.grid(row=1, column=1, sticky="we", padx=5)
         self.send_btn = tk.Button(self.root, text="Senden", command=self.send_message)
-        self.send_btn.grid(row=4, column=2, sticky="we", padx=5)
+        self.send_btn.grid(row=1, column=2, sticky="we", padx=5)
         self.img_btn = tk.Button(self.root, text="Bild senden", command=self.send_image)
-        self.img_btn.grid(row=5, column=1, columnspan=2, sticky="we", padx=5)
+        self.img_btn.grid(row=2, column=1, columnspan=2, sticky="we", padx=5)
+
+        # Label für ausgewählten Peer
+        self.selected_label = tk.Label(self.root, text="Ausgewählter Peer: --", anchor='w')
+        self.selected_label.grid(row=3, column=0, columnspan=3, sticky="we", padx=5, pady=2)
 
     def on_peer_select(self, event) -> None:
         """
-        @brief Aktualisiert das Label mit ausgewähltem Peer und Farbe.
+        @brief Aktualisiert das Label mit ausgewähltem Peer und dessen Farbe.
         """
         sel = self.peer_list.selection()
         if sel:
@@ -189,12 +192,15 @@ class ChatClientGUI:
                 messagebox.showerror("Network-Fehler", evt[1])
 
     def update_peer_list(self) -> None:
+        """
+        @brief Aktualisiert die GUI-Liste der bekannten Peers.
+        """
         for item in self.peer_list.get_children():
             self.peer_list.delete(item)
         for h, (ip, pr) in self.peers.items():
             tag = h.lower() if h.lower() in self.handle_colors else None
             tags = (tag,) if tag else ()
-            self.peer_list.insert("", tk.END, iid=h, values=(ip, pr), tags=tags)
+            self.peer_list.insert("", tk.END, iid=h, values=(ip, pr, h), tags=tags)
 
     def display_message(self, sender: str, text: str) -> None:
         """
