@@ -1,2 +1,0 @@
-# BSRN
-BSRN Projekt 

@@ -77,6 +77,9 @@ class ChatClientGUI:
         self.root.columnconfigure(1, weight=1)
         self.root.rowconfigure(0, weight=1)
 
+        #Willkommensnachricht nach GUI-Aufbau
+        self.display_message("System", f"Willkommen {self.handle}!")
+
     def _create_menu(self) -> None:
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
@@ -85,6 +88,42 @@ class ChatClientGUI:
         filemenu.add_command(label="Beenden", command=self.on_close)
         menubar.add_cascade(label="Datei", menu=filemenu)
         self.root.config(menu=menubar)
+
+    def toggle_chat_status(self) -> None:
+        if self.in_chat:
+            # Verlasse den Chat
+            try:
+                self.disc_cmd.send(("leave", self.handle))
+                self.display_message("System", "Du hast den Chat verlassen.")
+                # Leave-Nachricht an andere senden
+                for h, (ip, port) in self.peers.items():
+                    if h != self.handle:
+                        self.net_cmd.send(
+                            ("send_msg", "System", h, f"{self.handle} hat den Chat verlassen.", ip, port))
+            except Exception:
+                pass
+            self.entry_text.config(state=tk.DISABLED)
+            self.send_btn.config(state=tk.DISABLED)
+            self.img_btn.config(state=tk.DISABLED)
+            self.chat_toggle_btn.config(text="Join")
+            self.in_chat = False
+        else:
+            # Trete dem Chat bei
+            try:
+                self.disc_cmd.send(("join", self.handle, self.config.port_range[0]))
+                self.display_message("System", "Du bist dem Chat beigetreten.")
+                # Join-Nachricht an andere senden
+                for h, (ip, port) in self.peers.items():
+                    if h != self.handle:
+                        self.net_cmd.send(
+                            ("send_msg", "System", h, f"{self.handle} ist dem Chat beigetreten.", ip, port))
+            except Exception:
+                pass
+            self.entry_text.config(state=tk.NORMAL)
+            self.send_btn.config(state=tk.NORMAL)
+            self.img_btn.config(state=tk.NORMAL)
+            self.chat_toggle_btn.config(text="Leave")
+            self.in_chat = True
 
     def _create_widgets(self) -> None:
         """
@@ -127,9 +166,19 @@ class ChatClientGUI:
         self.img_btn = tk.Button(self.root, text="Bild senden", command=self.send_image)
         self.img_btn.grid(row=2, column=1, columnspan=2, sticky="we", padx=5)
 
+        # Leave/Join- und Quit-Button
+        self.in_chat = True  # Zustand speichern, im Chat
+        self.chat_toggle_btn = tk.Button(self.root, text="Leave", command=self.toggle_chat_status)
+        self.chat_toggle_btn.grid(row=4, column=0, sticky="we", padx=5, pady=5)
+
+        self.quit_btn = tk.Button(self.root, text="Quit", command=self.on_close)
+        self.quit_btn.grid(row=4, column=2, sticky="we", padx=5, pady=5)
+
         # Label für ausgewählten Peer
         self.selected_label = tk.Label(self.root, text="Ausgewählter Peer: --", anchor='w')
         self.selected_label.grid(row=3, column=0, columnspan=3, sticky="we", padx=5, pady=2)
+
+
 
     def on_peer_select(self, event) -> None:
         """
@@ -249,9 +298,21 @@ class ChatClientGUI:
 
     def on_close(self) -> None:
         try:
+            # Leave-Info an Discovery
             self.disc_cmd.send(("leave", self.handle))
+
+            # Leave-Nachricht an andere senden
+            for h, (ip, port) in self.peers.items():
+                if h != self.handle:
+                    self.net_cmd.send(
+                        ("send_msg", "System", h, f"{self.handle} hat den Chat verlassen (Programm beendet).", ip, port))
+
+            # Kurze Pause, um Nachrichtenversand zu ermöglichen
+            time.sleep(0.2)
         except Exception:
             pass
+
+        # Threads und Prozesse ordentlich beenden
         self.stop_event.set()
         self.net_proc.terminate()
         self.disc_proc.terminate()
