@@ -127,7 +127,7 @@ class ChatClientGUI:
 
         # Broadcast-Button
         self.broadcast_btn = tk.Button(self.root, text="An alle senden", command=self.send_broadcast_message)
-        self.broadcast_btn.grid(row=1, column=0, sticky="we", padx=5)
+        self.broadcast_btn.grid(row=1, column=0, rowspan=2, sticky="nswe", padx=5, pady=5)
 
         # AFK/Abwesenheit
         self.afk_btn = tk.Button(self.root, text="Abwesenheits-Modus", command=self.toggle_afk)
