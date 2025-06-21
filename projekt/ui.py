@@ -1,5 +1,9 @@
 # ui.py – Kommandozeilen-Interface mit config edit, Bildbetrachter,
 # manuellem JOIN und Autoreply-Funktion (aktiv erst nach manuellem Einschalten)
+# @file ui.py
+# @brief Kommandozeilen-Oberfläche für das Chatprogramm.
+# @details Bietet CLI-Unterstützung für Text- und Bildnachrichten, Discovery, Config-Änderung,
+#          sowie eine manuell aktivierbare Autoreply-Funktion.
 
 import threading
 import sys
@@ -9,10 +13,10 @@ from itertools import cycle
 from colorama import init, Fore, Style
 from config import Config
 
-# ANSI-Farbcode-Ausgabe initialisieren
+# ANSI-Farbcode-Ausgabe initialisieren 
 init(autoreset=True)
 
-# Zyklische Standardfarben als Fallback
+# Zyklische Standardfarben als Fallback in User interface 
 _COLOR_CYCLE = cycle([
     Fore.RED, Fore.GREEN, Fore.YELLOW,
     Fore.BLUE, Fore.MAGENTA, Fore.CYAN
@@ -20,6 +24,7 @@ _COLOR_CYCLE = cycle([
 
 def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     """
+    @fn run_ui
     @brief Startet die Kommandozeilen-Oberfläche (UI) des Chatprogramms.
     @param pipe_net_cmd Pipe zur Übermittlung von Befehlen an den Netzwerkdienst.
     @param pipe_net_evt Pipe für eingehende Netzwerkereignisse.
@@ -35,6 +40,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
     handle_to_color: dict[str, str] = {}
     def get_color(h: str) -> str:
         """
+        @fn get_color
         @brief Liefert ANSI-Farbe für ein Handle zurück.
         @param h Handle des Teilnehmers.
         @return ANSI-Farbcode (z. B. Fore.RED) für die Konsolenausgabe.
@@ -68,6 +74,10 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
 
     # --- Discovery-Listener ---
     def disc_listener():
+        """
+        @fn disc_listener
+        @brief Hört auf Discovery-Events und zeigt Teilnehmer an.
+        """
         nonlocal known_peers, last_printed
         while not stop_event.is_set():
             evt = pipe_disc_evt.recv()
@@ -84,6 +94,10 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
 
     # --- Network-Listener mit bedingtem Autoreply ---
     def net_listener():
+        """
+        @fn net_listener
+        @brief Hört auf Netzwerkereignisse (Nachrichten, Bilder, Fehler).
+        """
         while not stop_event.is_set():
             evt = pipe_net_evt.recv()
             if evt[0] == "msg":
