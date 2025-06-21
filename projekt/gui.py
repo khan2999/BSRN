@@ -1,12 +1,3 @@
-"""
- * @file chat_gui.py
- * @brief Grafische Oberfläche für den Chat-Client unter Verwendung von tkinter.
- * @details Startet Discovery- und Network-Dienste in Hintergrundprozessen,
- *          zeigt Teilnehmerliste und Nachrichtenfenster an,
- *          ermöglicht Versenden von Textnachrichten und Bildern.
- *          Discovery- und Netzwerkdienste als Hintergrundprozesse.
-"""
-
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
 import threading
@@ -17,42 +8,30 @@ import os
 from config import Config
 from discovery import run_discovery_service
 from network import run_network_service
+from PIL import Image, ImageTk
 
 class ChatClientGUI:
     """
-    @class ChatClientGUI
-    @brief Hauptklasse der GUI-Anwendung.
-    @details Initialisiert die GUI, startet Hintergrunddienste und verwaltet Benutzerinteraktionen.
+    Hauptklasse der GUI-Anwendung.
     """
     def __init__(self, config_path: str):
-        """
-        @fn __init__
-        @brief Konstruktor: Initialisiert GUI, Pipes und Prozesse.
-        @param[in] config_path Pfad zur TOML-Konfigurationsdatei.
-        """
         self.load_config(config_path)
+        self.afk_mode = False
+        self.autoreply_text = getattr(self.config, "autoreply", "Ich bin gerade nicht erreichbar.")
         self._setup_services()
         self._build_gui()
         self._start_listeners()
         self._auto_join()
+        self.chat_images = []  # Referenzen für angezeigte Bilder
         self.root.mainloop()
 
     def load_config(self, config_path: str) -> None:
-        """
-        @fn load_config
-        @brief Lädt die Konfiguration aus einer TOML-Datei.
-        """
         self.config = Config(config_path)
         self.handle = self.config.handle
-        # Farbzuweisungen pro Handle: keys lowercase
         raw = getattr(self.config, 'handle_colors', {})
         self.handle_colors = {h.lower(): c for h, c in raw.items()}
 
     def _setup_services(self) -> None:
-        """
-        @fn _setup_services
-        @brief Initialisiert Pipes und startet Discovery- und Network-Prozesse.
-        """
         self.net_cmd, net_recv = multiprocessing.Pipe()
         net_send, self.net_evt = multiprocessing.Pipe()
         self.disc_cmd, disc_recv = multiprocessing.Pipe()
@@ -74,26 +53,15 @@ class ChatClientGUI:
         self.net_proc.start()
 
     def _build_gui(self) -> None:
-        """
-        @fn _build_gui
-        @brief Setzt alle GUI-Komponenten auf, inklusive Farbcodierung.
-        @brief Erstellt und konfiguriert die grafische Benutzeroberfläche.
-        """
         self.root = tk.Tk()
         self.root.title(f"Chat-Client: {self.handle}")
         self._create_menu()
         self._create_widgets()
         self.root.columnconfigure(1, weight=1)
         self.root.rowconfigure(0, weight=1)
-
-        #Willkommensnachricht nach GUI-Aufbau
         self.display_message("System", f"Willkommen {self.handle}!")
 
     def _create_menu(self) -> None:
-        """
-        @fn _create_menu
-        @brief Erstellt das Menü der Anwendung.
-        """
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_command(label="Konfig laden", command=self._open_config_dialog)
@@ -102,48 +70,8 @@ class ChatClientGUI:
         menubar.add_cascade(label="Datei", menu=filemenu)
         self.root.config(menu=menubar)
 
-    def toggle_chat_status(self) -> None:
-        if self.in_chat:
-            # Verlasse den Chat
-            try:
-                self.disc_cmd.send(("leave", self.handle))
-                self.display_message("System", "Du hast den Chat verlassen.")
-                # Leave-Nachricht an andere senden
-                for h, (ip, port) in self.peers.items():
-                    if h != self.handle:
-                        self.net_cmd.send(
-                            ("send_msg", "System", h, f"{self.handle} hat den Chat verlassen.", ip, port))
-            except Exception:
-                pass
-            self.entry_text.config(state=tk.DISABLED)
-            self.send_btn.config(state=tk.DISABLED)
-            self.img_btn.config(state=tk.DISABLED)
-            self.chat_toggle_btn.config(text="Join")
-            self.in_chat = False
-        else:
-            # Trete dem Chat bei
-            try:
-                self.disc_cmd.send(("join", self.handle, self.config.port_range[0]))
-                self.display_message("System", "Du bist dem Chat beigetreten.")
-                # Join-Nachricht an andere senden
-                for h, (ip, port) in self.peers.items():
-                    if h != self.handle:
-                        self.net_cmd.send(
-                            ("send_msg", "System", h, f"{self.handle} ist dem Chat beigetreten.", ip, port))
-            except Exception:
-                pass
-            self.entry_text.config(state=tk.NORMAL)
-            self.send_btn.config(state=tk.NORMAL)
-            self.img_btn.config(state=tk.NORMAL)
-            self.chat_toggle_btn.config(text="Leave")
-            self.in_chat = True
-
     def _create_widgets(self) -> None:
-        """
-        @fn _create_widgets
-        @brief Erstellt Teilnehmerliste, Chat-Display und Eingabefelder.
-        """
-        # Teilnehmerliste mit Name-Spalte
+        # Teilnehmerliste
         self.peers = {}
         self.peer_list = ttk.Treeview(self.root, columns=("ip","port","name"), show="headings")
         self.peer_list.heading("ip", text="IP-Adresse")
@@ -154,8 +82,6 @@ class ChatClientGUI:
         self.peer_list.column("name", width=100)
         self.peer_list.grid(row=0, column=0, rowspan=3, sticky="nswe", padx=5, pady=5)
         self.peer_list.bind('<<TreeviewSelect>>', self.on_peer_select)
-
-        # Peer-Liste Farb-Tags
         for tag, color in self.handle_colors.items():
             try:
                 self.peer_list.tag_configure(tag, foreground=color)
@@ -165,14 +91,13 @@ class ChatClientGUI:
         # Chat-Anzeige
         self.chat_display = scrolledtext.ScrolledText(self.root, state=tk.DISABLED)
         self.chat_display.grid(row=0, column=1, columnspan=2, sticky="nswe", padx=5, pady=5)
-        # Chat Farb-Tags
         for tag, color in self.handle_colors.items():
             try:
                 self.chat_display.tag_configure(tag, foreground=color)
             except Exception:
                 pass
 
-        # Eingabe und Buttons
+        # Eingabefeld & Buttons
         self.entry_text = tk.Entry(self.root)
         self.entry_text.grid(row=1, column=1, sticky="we", padx=5)
         self.send_btn = tk.Button(self.root, text="Senden", command=self.send_message)
@@ -180,59 +105,85 @@ class ChatClientGUI:
         self.img_btn = tk.Button(self.root, text="Bild senden", command=self.send_image)
         self.img_btn.grid(row=2, column=1, columnspan=2, sticky="we", padx=5)
 
-        # Leave/Join- und Quit-Button
-        self.in_chat = True  # Zustand speichern, im Chat
+        # Join/Leave-Button
+        self.in_chat = True
         self.chat_toggle_btn = tk.Button(self.root, text="Leave", command=self.toggle_chat_status)
         self.chat_toggle_btn.grid(row=4, column=0, sticky="we", padx=5, pady=5)
 
+        # Quit-Button
         self.quit_btn = tk.Button(self.root, text="Quit", command=self.on_close)
         self.quit_btn.grid(row=4, column=2, sticky="we", padx=5, pady=5)
 
-        # Label für ausgewählten Peer
-        self.selected_label = tk.Label(self.root, text="Ausgewählter Peer: --", anchor='w')
+        # Label für ausgewählten Nutzer
+        self.selected_label = tk.Label(self.root, text="Ausgewählter Nutzer: --", anchor='w')
         self.selected_label.grid(row=3, column=0, columnspan=3, sticky="we", padx=5, pady=2)
 
+        # Broadcast-Button
+        self.broadcast_btn = tk.Button(self.root, text="An alle senden", command=self.send_broadcast_message)
+        self.broadcast_btn.grid(row=1, column=0, sticky="we", padx=5)
 
+        # AFK/Abwesenheit
+        self.afk_btn = tk.Button(self.root, text="Abwesenheits-Modus", command=self.toggle_afk)
+        self.afk_btn.grid(row=4, column=1, sticky="we", padx=5, pady=5)
+
+    def toggle_chat_status(self) -> None:
+        if self.in_chat:
+            try:
+                self.disc_cmd.send(("leave", self.handle))
+                self.display_message("System", "Du hast den Chat verlassen.")
+                for h, (ip, port) in self.peers.items():
+                    if h != self.handle:
+                        self.net_cmd.send(("send_msg", "System", h,
+                                           f"{self.handle} hat den Chat verlassen.", ip, port))
+            except Exception:
+                pass
+            self.entry_text.config(state=tk.DISABLED)
+            self.send_btn.config(state=tk.DISABLED)
+            self.img_btn.config(state=tk.DISABLED)
+            self.chat_toggle_btn.config(text="Join")
+            self.in_chat = False
+        else:
+            try:
+                self.disc_cmd.send(("join", self.handle, self.config.port_range[0]))
+                self.display_message("System", "Du bist dem Chat beigetreten.")
+                for h, (ip, port) in self.peers.items():
+                    if h != self.handle:
+                        self.net_cmd.send(("send_msg", "System", h,
+                                           f"{self.handle} ist dem Chat beigetreten.", ip, port))
+            except Exception:
+                pass
+            self.entry_text.config(state=tk.NORMAL)
+            self.send_btn.config(state=tk.NORMAL)
+            self.img_btn.config(state=tk.NORMAL)
+            self.chat_toggle_btn.config(text="Leave")
+            self.in_chat = True
+
+    def toggle_afk(self) -> None:
+        self.afk_mode = not self.afk_mode
+        state = "aktiviert" if self.afk_mode else "deaktiviert"
+        self.display_message("System", f"Abwesenheits-Modus {state}.")
+        self.afk_btn.config(text="Abwesenheits-Modus" if not self.afk_mode else "Zurück (Anwesend)")
 
     def on_peer_select(self, event) -> None:
-        """
-        @fn on_peer_select
-        @brief Aktualisiert das Label mit ausgewähltem Peer und dessen Farbe.
-        """
         sel = self.peer_list.selection()
         if sel:
             name = sel[0]
             color = self.handle_colors.get(name.lower(), 'black')
-            self.selected_label.config(text=f"Ausgewählter Peer: {name}", fg=color)
+            self.selected_label.config(text=f"Ausgewählter Nutzer: {name}", fg=color)
         else:
-            self.selected_label.config(text="Ausgewählter Peer: --", fg='black')
+            self.selected_label.config(text="Ausgewählter Nutzer: --", fg='black')
 
     def _start_listeners(self) -> None:
-        
-        """
-        @fn _start_listeners
-        @brief Startet Listener-Threads für Discovery- und Netzwerkereignisse.
-        """
-        
         self.stop_event = threading.Event()
         threading.Thread(target=self.disc_listener, daemon=True).start()
         threading.Thread(target=self.net_listener, daemon=True).start()
 
     def _auto_join(self) -> None:
-        """
-        @fn _auto_join
-        @brief Tritt automatisch dem Netzwerk bei und fragt nach bekannten Teilnehmern.
-        """
         self.disc_cmd.send(("join", self.handle, self.config.port_range[0]))
         time.sleep(0.1)
         self.disc_cmd.send(("who",))
 
     def _open_config_dialog(self) -> None:
-        """
-        @fn _open_config_dialog
-        @brief Öffnet einen Dialog zum Laden einer neuen Konfigurationsdatei.
-        @details Startet die Anwendung mit der neuen Konfiguration neu.
-        """
         path = filedialog.askopenfilename(
             title="Konfigurationsdatei wählen",
             filetypes=[("TOML-Dateien","*.toml")],
@@ -244,10 +195,6 @@ class ChatClientGUI:
             os.execv(sys.executable, [sys.executable, __file__, path])
 
     def disc_listener(self) -> None:
-        """
-        @fn disc_listener
-        @brief Listener-Thread für Discovery-Ereignisse.
-        """
         last = {}
         while not self.stop_event.is_set():
             evt = self.disc_evt.recv()
@@ -259,30 +206,26 @@ class ChatClientGUI:
                     self.update_peer_list()
 
     def net_listener(self) -> None:
-        """
-        @fn net_listener
-        @brief Listener-Thread für Netzwerkereignisse.
-        """
         while not self.stop_event.is_set():
             evt = self.net_evt.recv()
             if evt[0] == "msg":
                 _, sender, text = evt
-                if sender == self.handle:
-                    continue
-                self.display_message(sender, text)
+                if sender != self.handle:
+                    if self.afk_mode:
+                        ip, port = self.peers.get(sender, (None, None))
+                        if ip and port:
+                            self.net_cmd.send(("send_msg", self.handle, sender, self.autoreply_text, ip, port))
+                        # Nachricht wird nicht angezeigt
+                    else:
+                        self.display_message(sender, text)
             elif evt[0] == "img":
                 _, sender, path = evt
-                if sender == self.handle:
-                    continue
-                self.display_message(sender, f"<Bild gespeichert: {path}>")
+                if sender != self.handle:
+                    self.display_image(sender, path)
             elif evt[0] == "error":
                 messagebox.showerror("Network-Fehler", evt[1])
 
     def update_peer_list(self) -> None:
-        """
-        @fn update_peer_list
-        @brief Aktualisiert die GUI-Liste der bekannten Peers.
-        """
         for item in self.peer_list.get_children():
             self.peer_list.delete(item)
         for h, (ip, pr) in self.peers.items():
@@ -291,12 +234,6 @@ class ChatClientGUI:
             self.peer_list.insert("", tk.END, iid=h, values=(ip, pr, h), tags=tags)
 
     def display_message(self, sender: str, text: str) -> None:
-        """
-        @fn display_message
-        @brief Zeigt eine Nachricht im Chatfenster an.
-        @param[in] sender Handle des Absenders.
-        @param[in] text Inhalt der Nachricht.
-        """
         self.chat_display.config(state=tk.NORMAL)
         tag = sender.lower() if sender.lower() in self.handle_colors else None
         if tag:
@@ -306,11 +243,33 @@ class ChatClientGUI:
         self.chat_display.see(tk.END)
         self.chat_display.config(state=tk.DISABLED)
 
+    def display_image(self, sender: str, image_path: str) -> None:
+        """
+        Zeigt ein Bild im Chatfenster an.
+        """
+        try:
+            img = Image.open(image_path)
+            max_width = 200
+            if img.width > max_width:
+                ratio = max_width / img.width
+                img = img.resize((max_width, int(img.height * ratio)), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            self.chat_images.append(photo)
+
+            self.chat_display.config(state=tk.NORMAL)
+            tag = sender.lower() if sender.lower() in self.handle_colors else None
+            if tag:
+                self.chat_display.insert(tk.END, f"{sender}: ", tag)
+            else:
+                self.chat_display.insert(tk.END, f"{sender}: ")
+            self.chat_display.image_create(tk.END, image=photo)
+            self.chat_display.insert(tk.END, "\n")
+            self.chat_display.see(tk.END)
+            self.chat_display.config(state=tk.DISABLED)
+        except Exception as e:
+            messagebox.showerror("Bildfehler", f"Bild konnte nicht angezeigt werden: {e}")
+
     def send_message(self) -> None:
-        """
-        @fn send_message
-        @brief Sendet eine Textnachricht an den ausgewählten Peer.
-        """
         sel = self.peer_list.selection()
         if not sel:
             messagebox.showwarning("Keine Auswahl","Bitte Empfänger auswählen.")
@@ -324,11 +283,17 @@ class ChatClientGUI:
         self.display_message(self.handle, text)
         self.entry_text.delete(0, tk.END)
 
+    def send_broadcast_message(self) -> None:
+        text = self.entry_text.get().strip()
+        if not text:
+            return
+        for target, (ip, port) in self.peers.items():
+            if target != self.handle:
+                self.net_cmd.send(("send_msg", self.handle, target, text, ip, port))
+        self.display_message(self.handle, f"[an alle] {text}")
+        self.entry_text.delete(0, tk.END)
+
     def send_image(self) -> None:
-        """
-        @fn send_image
-        @brief Sendet ein Bild an den ausgewählten Peer.
-        """
         sel = self.peer_list.selection()
         if not sel:
             messagebox.showwarning("Keine Auswahl","Bitte Empfänger auswählen.")
@@ -342,41 +307,26 @@ class ChatClientGUI:
             return
         ip, port = self.peers[target]
         self.net_cmd.send(("send_img", self.handle, target, path, ip, port))
-        self.display_message(self.handle, f"<Bild gesendet: {path}>")
+        self.display_image(self.handle, path)
 
     def on_close(self) -> None:
-        """
-        @fn on_close
-        @brief Beendet die Anwendung und stoppt alle Hintergrundprozesse.
-        """
         try:
-            # Leave-Info an Discovery
             self.disc_cmd.send(("leave", self.handle))
-
-            # Leave-Nachricht an andere senden
             for h, (ip, port) in self.peers.items():
                 if h != self.handle:
                     self.net_cmd.send(
-                        ("send_msg", "System", h, f"{self.handle} hat den Chat verlassen (Programm beendet).", ip, port))
-
-            # Kurze Pause, um Nachrichtenversand zu ermöglichen
+                        ("send_msg", "System", h,
+                         f"{self.handle} hat den Chat verlassen (Programm beendet).", ip, port)
+                    )
             time.sleep(0.2)
         except Exception:
             pass
-
-        # Threads und Prozesse ordentlich beenden
         self.stop_event.set()
         self.net_proc.terminate()
         self.disc_proc.terminate()
         self.root.destroy()
 
-
 def start_gui(config_path: str) -> None:
-    """
-    @fn start_gui
-    @brief Startet die GUI-Anwendung mit der gegebenen Konfigurationsdatei.
-    @param[in] config_path Pfad zur TOML-Datei.
-    """
     ChatClientGUI(config_path)
 
 if __name__ == '__main__':
