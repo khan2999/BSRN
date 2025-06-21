@@ -383,7 +383,7 @@ class ChatClientGUI:
 
 def start_gui(config_path: str) -> None:
     """
-    @fn start_gui
+    @fn start_gui und
     @brief Startet die GUI-Anwendung mit gegebener Konfiguration.
     @param config_path Pfad zur TOML-Konfigurationsdatei.
     """
