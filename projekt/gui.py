@@ -211,13 +211,12 @@ class ChatClientGUI:
             if evt[0] == "msg":
                 _, sender, text = evt
                 if sender != self.handle:
+                    self.display_message(sender, text)  # Nachricht anzeigen
                     if self.afk_mode:
                         ip, port = self.peers.get(sender, (None, None))
                         if ip and port:
                             self.net_cmd.send(("send_msg", self.handle, sender, self.autoreply_text, ip, port))
-                        # Nachricht wird nicht angezeigt
-                    else:
-                        self.display_message(sender, text)
+
             elif evt[0] == "img":
                 _, sender, path = evt
                 if sender != self.handle:
@@ -270,9 +269,13 @@ class ChatClientGUI:
             messagebox.showerror("Bildfehler", f"Bild konnte nicht angezeigt werden: {e}")
 
     def send_message(self) -> None:
+        if self.afk_mode:
+            messagebox.showinfo("Abwesenheits-Modus aktiv", "Nachrichten können im Abwesenheits-Modus nicht gesendet werden.")
+            return
+
         sel = self.peer_list.selection()
         if not sel:
-            messagebox.showwarning("Keine Auswahl","Bitte Empfänger auswählen.")
+            messagebox.showwarning("Keine Auswahl", "Bitte Empfänger auswählen.")
             return
         target = sel[0]
         text = self.entry_text.get().strip()
@@ -284,6 +287,11 @@ class ChatClientGUI:
         self.entry_text.delete(0, tk.END)
 
     def send_broadcast_message(self) -> None:
+        if self.afk_mode:
+            messagebox.showinfo("Abwesenheits-Modus aktiv",
+                                "Broadcast-Nachrichten können im Abwesenheits-Modus nicht gesendet werden.")
+            return
+
         text = self.entry_text.get().strip()
         if not text:
             return
@@ -294,14 +302,18 @@ class ChatClientGUI:
         self.entry_text.delete(0, tk.END)
 
     def send_image(self) -> None:
+        if self.afk_mode:
+            messagebox.showinfo("Abwesenheits-Modus aktiv", "Bilder können im Abwesenheits-Modus nicht gesendet werden.")
+            return
+
         sel = self.peer_list.selection()
         if not sel:
-            messagebox.showwarning("Keine Auswahl","Bitte Empfänger auswählen.")
+            messagebox.showwarning("Keine Auswahl", "Bitte Empfänger auswählen.")
             return
         target = sel[0]
         path = filedialog.askopenfilename(
             title="Bild auswählen",
-            filetypes=[("JPEG","*.jpg;*.jpeg"),("PNG","*.png"),("Alle","*")]
+            filetypes=[("JPEG", "*.jpg;*.jpeg"), ("PNG", "*.png"), ("Alle", "*")]
         )
         if not path:
             return
