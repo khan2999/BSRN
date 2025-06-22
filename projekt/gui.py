@@ -1,8 +1,17 @@
 # @file chat_client_gui.py
-# @brief Erweiterte grafische Chat-Oberfläche mit AFK-Modus, Broadcast-Funktion und Bildanzeige.
-# @details Diese GUI-Anwendung ermöglicht Text- und Bildkommunikation über ein Netzwerk mit
-# Discovery-Mechanismus. Zusätzlich unterstützt sie Abwesenheitsmeldungen (AFK),
-# Broadcasts und eine Join/Leave-Logik zur Teilnehmerverwaltung.
+# @brief Erweiterte grafische Chat-Oberfläche für dezentrale Netzwerkkommunikation mit Zusatzfunktionen.
+# @details
+# Diese Anwendung implementiert eine vollständige grafische Chat-Benutzeroberfläche (GUI) mit Peer-to-Peer-Kommunikation
+# unter Verwendung eines Discovery-Dienstes und eines Netzwerkdienstes. Neben dem Senden von Textnachrichten und Bildern
+# unterstützt sie folgende Funktionen:
+# - Verwaltung und Anzeige aktiver Peers (Teilnehmer)
+# - AFK-Modus mit automatischer Antwort
+# - Broadcast-Nachrichten an alle Teilnehmer
+# - Join/Leave-Logik zur dynamischen Teilnahmeverwaltung
+# - Farbliche Zuordnung der Handle-Namen
+# - Automatischer Verbindungsaufbau zu Discovery- und Netzwerkdiensten mittels IPC
+# - Wechsel und Neustart über neue TOML-Konfigurationsdateien
+# Die GUI basiert auf `tkinter`, die Bildverarbeitung erfolgt über Pillow (PIL).
 
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
@@ -19,7 +28,12 @@ from PIL import Image, ImageTk
 class ChatClientGUI:
     """
     @class ChatClientGUI
-    @brief Hauptklasse der GUI-Anwendung mit Abwesenheitsmodus und erweiterten Chatfunktionen.
+    @brief Hauptklasse der grafischen Benutzeroberfläche (GUI) für den Chat-Client.
+    @details Diese Klasse initialisiert die Benutzeroberfläche, lädt die Konfiguration,
+             stellt IPC-Verbindungen zu Discovery- und Netzwerkdiensten her und verarbeitet
+             alle UI-Interaktionen und Benutzerkommandos. Die Klasse unterstützt AFK-Modus,
+             Broadcasting, Join/Leave-Logik und Bildübertragung. Die Nachrichtenverarbeitung
+             erfolgt asynchron über dedizierte Listener-Threads.
     """
     def __init__(self, config_path: str):
         self.load_config(config_path)
@@ -370,7 +384,9 @@ class ChatClientGUI:
 
     def on_close(self) -> None:
         """
-        @brief Beendet die Anwendung und informiert die Peers über das Verlassen.
+        @brief Beendet die Anwendung und informiert alle verbundenen Peers über das Verlassen.
+        @details Sendet eine "leave"-Nachricht an den Discovery-Dienst und eine Systemmeldung
+                 an alle aktiven Peers. Beendet anschließend Discovery- und Netzwerkprozess.
         """
         try:
             self.disc_cmd.send(("leave", self.handle))
@@ -391,8 +407,8 @@ class ChatClientGUI:
 def start_gui(config_path: str) -> None:
     """
     @fn start_gui
-    @brief Startet die GUI-Anwendung mit gegebener Konfiguration.
-    @param config_path Pfad zur TOML-Konfigurationsdatei.
+    @brief Startet die grafische Chat-Oberfläche mit gegebener Konfiguration.
+    @param config_path Pfad zur TOML-Konfigurationsdatei, die Nutzerinformationen und Netzwerkeinstellungen enthält.
     """
     ChatClientGUI(config_path)
 
