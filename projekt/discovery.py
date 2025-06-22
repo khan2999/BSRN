@@ -1,4 +1,34 @@
 # discovery.py – Broadcast-basiertes Teilnehmer-Discovery
+##
+# @file discovery.py
+# @brief Discovery-Dienst für den dezentralen Chat-Client (SLCP-Protokoll).
+#
+# @details Dieses Modul implementiert einen UDP-basierten Mechanismus zur automatischen
+# Erkennung von Teilnehmern im lokalen Netzwerk. Mithilfe von Broadcast-Nachrichten
+# werden Join- und Leave-Events sowie Nutzerlisten ausgetauscht.
+#
+# Der Discovery-Service ist zuständig für:
+# - Verwaltung einer lokalen Teilnehmer-Registry
+# - Entgegennahme von JOIN, LEAVE, WHO-Nachrichten über UDP
+# - Senden von KNOWNUSERS-Antworten an andere Clients
+# - Synchronisation mit der UI über IPC-Pipes
+#
+# Es wird ein Hintergrund-Thread verwendet, um eingehende Nachrichten parallel zur
+# Steuerung durch die Benutzeroberfläche (UI) zu verarbeiten.
+#
+# @architecture Der Service wird als separater Prozess gestartet und kommuniziert mit
+# der Benutzeroberfläche über zwei Pipes:
+# - ⁠ pipe_cmd ⁠: Befehle von der UI (join, leave, who)
+# - ⁠ pipe_evt ⁠: Ereignisse an die UI (aktuelle Nutzerliste)
+#
+# @note Das Modul verwendet UDP-Broadcasts für die Peer-Kommunikation und arbeitet
+# plattformübergreifend.
+#
+# @see run_discovery_service()
+# @author Ismet Algül, Aysenur Algül, Enes Kurutay, Ugur Can, Nasratullah Ahmadzai
+# @date Juni 2025
+
+
 
 import socket
 import threading
@@ -27,13 +57,17 @@ def _get_local_ip() -> str:
 
 def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
     """
-    @brief Discovery-Dienst für Peer-Erkennung via UDP-Broadcast.
-    @param pipe_cmd Pipe von UI → Discovery (JOIN, WHO, LEAVE).
-    @param pipe_evt Pipe von Discovery → UI (users, error).
-    @param config Konfigurationsobjekt mit whoisport-Attribut.
-    @details Der Service verwaltet eine Registry aktiver Nutzer und reagiert auf
-             Broadcast-Nachrichten sowie auf Steuerbefehle aus der UI.
+    @brief Startet den Discovery-Service für Peer-to-Peer-Erkennung über UDP-Broadcast.
+    @param pipe_cmd Pipe für Steuerbefehle von der UI (join, leave, who).
+    @param pipe_evt Pipe zur Rückmeldung von Nutzerlisten an die UI.
+    @param config Konfigurationsobjekt mit Informationen über whois-Port, Handle, usw.
+    @details
+    - Verwaltet eine interne Registry aller bekannten Peers im lokalen Netzwerk.
+    - Reagiert auf JOIN-/LEAVE-/WHO-Anfragen.
+    - Antwortet mit KNOWNUSERS-Nachrichten an andere Discovery-Instanzen.
+    - Nutzt einen Listener-Thread, um UDP-Messages asynchron zu empfangen.
     """
+
     whois_port = config.whoisport
     registry: Dict[str, Tuple[str,int]] = {}       # aktuell erfasste Teilnehmer
     last_registry: Dict[str, Tuple[str,int]] = {}  # zuletzt gesendete Snapshot
@@ -55,8 +89,11 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
 
     def send_update_if_changed():
         """
-        @brief Sendet Nutzerliste an UI, falls sich Registry geändert hat.
-        """
+    @brief Sendet eine aktualisierte Nutzerliste an die UI, falls sich die Registry geändert hat.
+    @details Wird automatisch aufgerufen, wenn neue Teilnehmer erkannt oder entfernt wurden.
+    Vermeidet redundante Übertragungen, indem die letzte bekannte Registry mit der aktuellen verglichen wird.
+    """
+
         nonlocal last_registry
         if registry != last_registry:
             pipe_evt.send(("users", dict(registry)))
@@ -64,9 +101,16 @@ def run_discovery_service(pipe_cmd, pipe_evt, config) -> None:
 
     def listener():
         """
-        @brief Haupt-Listener für eingehende UDP-Nachrichten.
-        @details Verarbeitet JOIN, LEAVE, WHO und KNOWNUSERS-Botschaften.
-        """
+    @brief Hintergrund-Thread, der kontinuierlich eingehende UDP-Broadcasts verarbeitet.
+    @details
+    Erkennt und verarbeitet folgende Nachrichtenformate:
+    - 'JOIN <handle> <port>' – Registrierung eines neuen Teilnehmers
+    - 'LEAVE <handle>' – Abmeldung eines Teilnehmers
+    - 'WHO' – Anfrage zur aktuellen Registry
+    - 'KNOWNUSERS <handle ip port,...>' – Antwort auf WHO mit vollständiger Teilnehmerliste
+    Nach jedem relevanten Update wird die Registry aktualisiert und ggf. an die UI gesendet.
+    """
+
         nonlocal last_registry
         while True:
             data, addr = sock.recvfrom(BUFFER_SIZE)

@@ -1,3 +1,29 @@
+##
+# @file discovery_main.py
+# @brief Einstiegspunkt für den Discovery-Service im dezentralen Chat-Programm.
+#
+# @details
+# Dieses Skript dient als separater Startprozess für den UDP-basierten Discovery-Service.
+# Es stellt sicher, dass auf jedem Host pro Port nur eine Instanz des Discovery-Moduls läuft.
+# Dies wird durch ein Lockfile im temporären Verzeichnis realisiert.
+#
+# Nach dem Start öffnet der Dienst einen IPC-Listener zur Kommunikation mit der Benutzeroberfläche.
+# Sobald die Verbindung zur UI steht, wird der Discovery-Service gestartet, der sich um die
+# Broadcast-basierte Teilnehmererkennung im lokalen Netzwerk kümmert.
+#
+# @usage
+#   python3 discovery_main.py <config.toml> [ipc_port]
+#
+# @section Komponenten
+# - *Config*: Lädt Benutzer- und Netzwerkparameter aus einer TOML-Datei.
+# - *run_discovery_service*: Discovery-Funktion aus dem discovery-Modul.
+# - *Listener*: Stellt IPC-Verbindung zur Benutzeroberfläche (UI) her.
+#
+# @note Der Dienst sollte pro Gerät und Port nur einmal gestartet werden.
+#
+# @author Ismet Algül, Aysenur Algül, Enes Kurutay, Ugur Can, Nasratullah Ahmadzai
+# @date Juni 2025
+
 import sys
 from config import Config
 from discovery import run_discovery_service
@@ -11,6 +37,7 @@ if __name__ == "__main__":
     @details Verwendet ein Lockfile, um sicherzustellen, dass pro Port nur eine Instanz läuft.
     @usage python3 discovery_main.py <config.toml> [ipc_port]
     """
+
     # Mindestanzahl an Argumenten prüfen (Config-Datei erforderlich)
     if len(sys.argv) < 2:
         print("Usage: python3 discovery_main.py <config.toml> [ipc_port]")
