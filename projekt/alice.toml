@@ -9,3 +9,10 @@ Alice = "RED"
 Bob = "GREEN"
 Caroline = "BLUE"
 Diana = "MAGENTA"
+
+#bash im Terminal von Alice, um ihr Chat zu straten:
+
+#rm -f /tmp/chat_discovery_6000.lock
+#python3 discovery_main.py alice.toml    6000 > logs/alice.discovery.log    2>&1 & sleep 0.2
+#python3 network_main.py   alice.toml    6001 > logs/alice.network.log      2>&1 & sleep 0.2
+#python3 main_ui.py        alice.toml    6000 6001
