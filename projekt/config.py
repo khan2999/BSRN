@@ -1,3 +1,10 @@
+##
+# @file config.py
+# @brief Modul zur Verwaltung der TOML-basierten Konfiguration des Chat-Clients.
+# @details Dieses Modul stellt die Klasse `Config` bereit, die eine Konfigurationsdatei im TOML-Format lädt, analysiert und verwaltet.
+# Sie bietet Zugriff auf zentrale Parameter wie Benutzerhandle, Portbereich, Whois-Port, Autoreply-Text, Bildverzeichnis und farbliche Handle-Darstellung.
+# Zusätzlich unterstützt sie das Speichern von Konfigurationsänderungen zurück in die Datei.
+##
 import tomllib
 import toml
 from pathlib import Path
