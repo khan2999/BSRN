@@ -172,11 +172,17 @@ class ChatClientGUI:
     def toggle_afk(self) -> None:
         """
         @brief Aktiviert oder deaktiviert den Abwesenheitsmodus (AFK).
+        @details Deaktiviert Eingabefunktionen bei Abwesenheitsmodus.
         """
         self.afk_mode = not self.afk_mode
         state = "aktiviert" if self.afk_mode else "deaktiviert"
         self.display_message("System", f"Abwesenheits-Modus {state}.")
-        self.afk_btn.config(text="Abwesenheits-Modus" if not self.afk_mode else "Zurück (Anwesend)")
+        self.afk_btn.config(text="Zurück (Anwesend)" if self.afk_mode else "Abwesenheits-Modus")
+
+        # Buttons und Eingabefeld je nach AFK-Status deaktivieren oder aktivieren
+        widgets = [self.entry_text, self.send_btn, self.img_btn, self.broadcast_btn]
+        for w in widgets:
+            w.config(state=tk.DISABLED if self.afk_mode else tk.NORMAL)
 
     def on_peer_select(self, event) -> None:
         
