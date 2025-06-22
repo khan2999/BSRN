@@ -1,9 +1,9 @@
-"""
-@file network.py
-@brief Netzwerkdienst: SLCP-Nachrichten (MSG, IMG) über TCP/UDP senden und empfangen.
-@details Implementiert einen TCP-Server für Textnachrichten und einen UDP-Server für Bilddaten.
-"""
-
+## @file network.py
+## @brief Netzwerkdienst: SLCP-Nachrichten (MSG, IMG) über TCP/UDP senden und empfangen.
+##
+## Dieses Modul implementiert einen TCP-Server (für Textnachrichten)
+## und einen UDP-Server (für Bilddaten), die in getrennten Threads laufen.
+## Es stellt Funktionen zum Empfangen und Senden von SLCP-Nachrichten bereit.
 
 from pathlib import Path
 import socket
@@ -15,9 +15,9 @@ _CHUNK_SIZE = 60000
 
 def _handle_tcp(conn, pipe_evt):
     """
-    @brief Bearbeitet eine einzelne TCP-Verbindung für SLCP-MSG.
-    @param conn Aktive TCP-Verbindung (Socket).
-    @param pipe_evt Pipe zum UI-Prozess.
+    @brief Bearbeitet eine eingehende TCP-Verbindung für SLCP-MSG-Nachrichten.
+    @param conn Socket-Objekt für die eingehende TCP-Verbindung.
+    @param pipe_evt Pipe-Objekt zum Senden von Events an den UI-Prozess.
     """
     try:
         header = b''
@@ -39,9 +39,9 @@ def _handle_tcp(conn, pipe_evt):
 
 def _tcp_listener(server_socket, pipe_evt):
     """
-    @brief Akzeptiert eingehende TCP-Verbindungen und leitet sie weiter.
-    @param server_socket Gebundener TCP-Server-Socket.
-    @param pipe_evt Pipe zum UI-Prozess.
+    @brief Wartet auf TCP-Verbindungen und startet jeweils einen neuen Thread zur Verarbeitung.
+    @param server_socket Vorab gebundener TCP-Server-Socket.
+    @param pipe_evt Pipe zum Senden von Events an den UI-Prozess.
     """
     while True:
         conn, _ = server_socket.accept()
@@ -53,10 +53,10 @@ def _tcp_listener(server_socket, pipe_evt):
 
 def _udp_listener(udp_sock, pipe_evt, image_dir):
     """
-    @brief Empfängt SLCP IMG-Nachrichten per UDP, speichert Bilder und sendet Events.
-    @param udp_sock Gebundener UDP-Socket für Bilddaten.
-    @param pipe_evt Pipe zum UI-Prozess.
-    @param image_dir Verzeichnis zum Speichern der Bilder.
+    @brief Wartet auf UDP-Daten (SLCP-IMG), speichert empfangene Bilder und sendet Ereignisse.
+    @param udp_sock Gebundener UDP-Socket für Bildempfang.
+    @param pipe_evt Pipe zum Senden von Events an den UI-Prozess.
+    @param image_dir Verzeichnis zur Speicherung empfangener Bilder.
     """
     while True:
         data, _ = udp_sock.recvfrom(65535)
@@ -77,17 +77,19 @@ def _udp_listener(udp_sock, pipe_evt, image_dir):
 
 def run_network_service(pipe_cmd, pipe_evt, config):
     """
-    @brief Netzwerkdienst: Empfängt und sendet SLCP-Nachrichten (MSG, IMG) per TCP und UDP.
-    @param pipe_cmd Pipe für Befehle vom UI-Prozess.
-    @param pipe_evt Pipe für Ereignisse an den UI-Prozess.
-    @param config Konfigurationsobjekt mit port_range, handle und imagepath.
+    @brief Startet den Netzwerkdienst (TCP/UDP) und verarbeitet eingehende sowie ausgehende SLCP-Nachrichten.
+    @param pipe_cmd Pipe zum Empfangen von Befehlen vom UI-Prozess.
+    @param pipe_evt Pipe zum Senden von Ereignissen an den UI-Prozess.
+    @param config Konfigurationsobjekt mit Attributen:
+           - port_range: Tupel (min_port, max_port) zur Portauswahl,
+           - handle: Benutzerkennung (Sender),
+           - imagepath: Zielverzeichnis für empfangene Bilder.
     """
-    # Service-Setup
     handle = config.handle
     image_dir = Path(config.imagepath)
     image_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1) TCP-Server auf verfügbarem Port starten
+    # TCP-Server starten
     tcp_srv = None
     bound_port = None
     for p in range(config.port_range[0], config.port_range[1] + 1):
@@ -106,7 +108,7 @@ def run_network_service(pipe_cmd, pipe_evt, config):
         pipe_evt.send(("error", "Kein freier TCP-Port gefunden"))
         return
 
-    # 2) UDP-Socket für Bild-Transfer auf demselben Port
+    # UDP-Socket auf gleichem Port binden
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -115,7 +117,7 @@ def run_network_service(pipe_cmd, pipe_evt, config):
         pass
     udp_sock.bind(('', bound_port))
 
-    # UI über gewählten TCP-Port informieren
+    # Port dem UI-Prozess mitteilen
     pipe_evt.send(("tcp_port", bound_port))
 
     # Listener-Threads starten
@@ -130,7 +132,7 @@ def run_network_service(pipe_cmd, pipe_evt, config):
         daemon=True
     ).start()
 
-    # 3) Ausgehende Befehle verarbeiten
+    # Verarbeitung ausgehender Nachrichten
     while True:
         cmd = pipe_cmd.recv()
         if not isinstance(cmd, tuple):
@@ -138,6 +140,14 @@ def run_network_service(pipe_cmd, pipe_evt, config):
         action = cmd[0]
         try:
             if action == 'send_msg':
+                """
+                @brief Sendet eine SLCP-MSG-Nachricht über TCP.
+                @param frm Absenderkennung.
+                @param to Empfängerkennung (nicht verwendet).
+                @param text Nachrichtentext.
+                @param ip Ziel-IP-Adresse.
+                @param port Ziel-TCP-Port.
+                """
                 _, frm, to, text, ip, port = cmd
                 if len(text) > 512:
                     pipe_evt.send((
@@ -170,6 +180,14 @@ def run_network_service(pipe_cmd, pipe_evt, config):
                     ))
 
             elif action == 'send_img':
+                """
+                @brief Sendet eine SLCP-IMG-Nachricht über UDP.
+                @param frm Absenderkennung.
+                @param to Empfängerkennung (nicht verwendet).
+                @param path Pfad zur Bilddatei.
+                @param ip Ziel-IP-Adresse.
+                @param port Ziel-UDP-Port.
+                """
                 _, frm, to, path, ip, port = cmd
                 img_data = Path(path).read_bytes()
                 hdr = f"IMG {frm} {len(img_data)}\n".encode()
