@@ -148,7 +148,7 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
 
     # Begrüßung in Grün und Befehlsübersicht in Gelb
     print(f"\n{Fore.GREEN}Willkommen im Chat, {handle}!{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}Befehle: allmsg, autoreply, config, exit, img, join, leave, msg, who{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}Befehle: MSG <handle> <text>, ALLMSG <text>, IMG <handle> <path>, AUTOREPLY, CONFIG, QUIT, JOIN, LEAVE, WHO{Style.RESET_ALL}")
 
     # --- Haupt-Loop zur Verarbeitung von CLI-Kommandos ---
     while True:
@@ -161,18 +161,18 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
         rest = parts[1] if len(parts) > 1 else ""
 
         try:
-            if cmd == "allmsg":
+            if cmd == "ALLMSG":
                 for to, (ip, pr) in known_peers.items():
                     if to != handle:
                         pipe_net_cmd.send(("send_msg", handle, to, rest, ip, pr))
 
-            elif cmd == "autoreply":
+            elif cmd == "AUTOREPLY":
                 # Manuelles Ein-/Ausschalten der Autoreply-Funktion
                 autoreply_enabled = not autoreply_enabled
                 state = "aktiviert" if autoreply_enabled else "deaktiviert"
                 print(f"Autoreply wurde {state}.")
 
-            elif cmd == "config":
+            elif cmd == "CONFIG":
                 print("=== Config bearbeiten ===")
                 old_handle = handle
                 new_handle = input(f"Handle [{config.handle}]: ") or config.handle
@@ -190,32 +190,32 @@ def run_ui(pipe_net_cmd, pipe_net_evt, pipe_disc_cmd, pipe_disc_evt, config):
                 pipe_disc_cmd.send(("who",))
                 print(f"[System] Handle geändert: {old_handle} → {handle}")
 
-            elif cmd == "exit" or cmd == "quit":
+            elif cmd == "EXIT" or cmd == "QUIT":
                 pipe_disc_cmd.send(("leave", handle))
                 print("Chat beendet.")
                 stop_event.set()
                 sys.exit(0)
 
-            elif cmd == "img":
+            elif cmd == "IMG":
                 to, path = rest.split(" ", 1)
                 ip, pr = known_peers[to]
                 pipe_net_cmd.send(("send_img", handle, to, path, ip, pr))
 
-            elif cmd == "join":
+            elif cmd == "JOIN":
                 pipe_disc_cmd.send(("join", handle, tcp_port))
                 pipe_disc_cmd.send(("who",))
                 print("[System] Neuer JOIN gesendet.")
 
-            elif cmd == "leave":
+            elif cmd == "LEAVE":
                 pipe_disc_cmd.send(("leave", handle))
                 print("Chat verlassen.")
 
-            elif cmd == "msg":
+            elif cmd == "MSG":
                 to, text = rest.split(" ", 1)
                 ip, pr = known_peers[to]
                 pipe_net_cmd.send(("send_msg", handle, to, text, ip, pr))
 
-            elif cmd == "who":
+            elif cmd == "WHO":
                 pipe_disc_cmd.send(("who",))
                 print("\n[Discovery] Bekannte Teilnehmer (manuell):")
                 for h, (ip, pr) in known_peers.items():
