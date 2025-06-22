@@ -18,4 +18,3 @@ Diana    = "MAGENTA"
 #python3 network_main.py   caroline.toml 8001 > logs/caroline.network.log   2>&1 & sleep 0.2
 #python3 main_ui.py        caroline.toml 8000 8001
 
-

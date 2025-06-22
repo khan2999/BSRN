@@ -1,12 +1,17 @@
-"""
-@file gui.py
-@brief Erweiterte grafische Chat-Oberfläche für dezentrale Netzwerkkommunikation mit Zusatzfunktionen.
-@details Diese Anwendung implementiert eine vollständige grafische Chat-Benutzeroberfläche (GUI)
-         mit Peer-to-Peer-Kommunikation unter Verwendung eines Discovery-Dienstes und eines Netzwerkdienstes.
-         Neben dem Senden von Textnachrichten und Bildern unterstützt sie AFK-Modus, Broadcasting,
-         Join/Leave-Logik, farbliche Zuordnung der Handle-Namen und automatischen Verbindungsaufbau.
-"""
-
+# @file chat_client_gui.py
+# @brief Erweiterte grafische Chat-Oberfläche für dezentrale Netzwerkkommunikation mit Zusatzfunktionen.
+# @details
+# Diese Anwendung implementiert eine vollständige grafische Chat-Benutzeroberfläche (GUI) mit Peer-to-Peer-Kommunikation
+# unter Verwendung eines Discovery-Dienstes und eines Netzwerkdienstes. Neben dem Senden von Textnachrichten und Bildern
+# unterstützt sie folgende Funktionen:
+# - Verwaltung und Anzeige aktiver Peers (Teilnehmer)
+# - AFK-Modus mit automatischer Antwort
+# - Broadcast-Nachrichten an alle Teilnehmer
+# - Join/Leave-Logik zur dynamischen Teilnahmeverwaltung
+# - Farbliche Zuordnung der Handle-Namen
+# - Automatischer Verbindungsaufbau zu Discovery- und Netzwerkdiensten mittels IPC
+# - Wechsel und Neustart über neue TOML-Konfigurationsdateien
+# Die GUI basiert auf `tkinter`, die Bildverarbeitung erfolgt über Pillow (PIL).
 
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox

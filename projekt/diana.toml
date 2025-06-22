@@ -17,4 +17,3 @@ Diana    = "MAGENTA"
 #python3 network_main.py   diana.toml    9001 > logs/diana.network.log      2>&1 & sleep 0.2
 #python3 main_ui.py        diana.toml    9000 9001
 
-
