@@ -1,17 +1,17 @@
-##
-# @file network_main.py
-# @brief Startskript für den Network-Service-Prozess.
-# @details Dieses Modul wird als separates Skript aufgerufen, um den Netzwerkdienst des
-# Chatprogramms zu starten. Es stellt eine IPC-Verbindung zur Benutzeroberfläche her
-# und übergibt dann die Kontrolle an den eigentlichen Netzwerkdienst.
-#
-# Wird typischerweise aufgerufen durch:
-# @code
-# python3 network_main.py <config.toml> [ipc_port]
-# @endcode
-#
-# @author Gruppe A11
-# @date 2025
+"""
+@file network_main.py
+@brief Startskript für den Network-Service-Prozess.
+@details Dieses Modul wird als separates Skript aufgerufen, um den Netzwerkdienst des
+Chatprogramms zu starten. Es stellt eine IPC-Verbindung zur Benutzeroberfläche her
+und übergibt dann die Kontrolle an den eigentlichen Netzwerkdienst.
+Wird typischerweise aufgerufen durch:
+@code
+python3 network_main.py <config.toml> [ipc_port]
+@endcode
+
+@author Gruppe A11
+@date 2025
+"""
 
 import sys
 from config import Config

@@ -1,16 +1,15 @@
-##
-# @file ui.py
-# @brief Kommandozeilen-Oberfläche (CLI) des dezentralen Chat-Programms.
-# @details Dieses Modul bietet eine textbasierte Benutzerschnittstelle zur Steuerung
-#          des Chat-Clients. Es unterstützt das Senden von Text- und Bildnachrichten,
-#          Teilnehmerverwaltung via Discovery-Dienst, sowie eine manuell aktivierbare
-#          Autoreply-Funktion bei Abwesenheit.
-#
-# Verwendet ANSI-Farben zur Anzeige und bietet Konfigurationsänderungen zur Laufzeit.
-#
-# @author Gruppe A11
-# @date 2025
+"""
+@file ui.py
+@brief Kommandozeilen-Oberfläche (CLI) des dezentralen Chat-Programms.
+@details Dieses Modul bietet eine textbasierte Benutzerschnittstelle zur Steuerung
+          des Chat-Clients. Es unterstützt das Senden von Text- und Bildnachrichten,
+          Teilnehmerverwaltung via Discovery-Dienst, sowie eine manuell aktivierbare
+          Autoreply-Funktion bei Abwesenheit.
 
+Verwendet ANSI-Farben zur Anzeige und bietet Konfigurationsänderungen zur Laufzeit.
+@author Gruppe A11
+@date 2025
+"""
 import subprocess
 import sys
 import threading

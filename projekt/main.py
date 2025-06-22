@@ -1,4 +1,10 @@
-# main.py – Startskript für Discovery-, Network- und UI-Prozesse
+"""
+@file main.py
+@brief Startskript für Discovery-, Network- und UI-Prozesse.
+@details Lädt die Konfigurationsdatei, startet Discovery- und Network-Services als Hintergrundprozesse
+         und führt die Benutzeroberfläche im Hauptprozess aus.
+@usage python3 main.py <alice.toml|bob.toml>
+"""
 
 import sys
 import multiprocessing

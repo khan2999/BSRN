@@ -1,32 +1,19 @@
-# discovery.py – Broadcast-basiertes Teilnehmer-Discovery
-##
-# @file discovery.py
-# @brief Discovery-Dienst für den dezentralen Chat-Client (SLCP-Protokoll).
-#
-# @details Dieses Modul implementiert einen UDP-basierten Mechanismus zur automatischen
-# Erkennung von Teilnehmern im lokalen Netzwerk. Mithilfe von Broadcast-Nachrichten
-# werden Join- und Leave-Events sowie Nutzerlisten ausgetauscht.
-#
-# Der Discovery-Service ist zuständig für:
-# - Verwaltung einer lokalen Teilnehmer-Registry
-# - Entgegennahme von JOIN, LEAVE, WHO-Nachrichten über UDP
-# - Senden von KNOWNUSERS-Antworten an andere Clients
-# - Synchronisation mit der UI über IPC-Pipes
-#
-# Es wird ein Hintergrund-Thread verwendet, um eingehende Nachrichten parallel zur
-# Steuerung durch die Benutzeroberfläche (UI) zu verarbeiten.
-#
-# @architecture Der Service wird als separater Prozess gestartet und kommuniziert mit
-# der Benutzeroberfläche über zwei Pipes:
-# - ⁠ pipe_cmd ⁠: Befehle von der UI (join, leave, who)
-# - ⁠ pipe_evt ⁠: Ereignisse an die UI (aktuelle Nutzerliste)
-#
-# @note Das Modul verwendet UDP-Broadcasts für die Peer-Kommunikation und arbeitet
-# plattformübergreifend.
-#
-# @see run_discovery_service()
-# @author Ismet Algül, Aysenur Algül, Enes Kurutay, Ugur Can, Nasratullah Ahmadzai
-# @date Juni 2025
+"""
+@file discovery.py
+@brief Discovery-Dienst für den dezentralen Chat-Client (SLCP-Protokoll).
+@details Dieses Modul implementiert einen UDP-basierten Mechanismus zur automatischen
+Erkennung von Teilnehmern im lokalen Netzwerk. Mithilfe von Broadcast-Nachrichten
+werden Join- und Leave-Events sowie Nutzerlisten ausgetauscht.
+
+Der Discovery-Service ist zuständig für:
+- Verwaltung einer lokalen Teilnehmer-Registry
+- Entgegennahme von JOIN, LEAVE, WHO-Nachrichten über UDP
+- Senden von KNOWNUSERS-Antworten an andere Clients
+- Synchronisation mit der UI über IPC-Pipes
+
+Es wird ein Hintergrund-Thread verwendet, um eingehende Nachrichten parallel zur
+Steuerung durch die Benutzeroberfläche (UI) zu verarbeiten.
+"""
 
 
 

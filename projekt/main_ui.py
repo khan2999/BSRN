@@ -1,20 +1,10 @@
-##
-# @file main_ui.py
-# @brief Startskript für die Kommandozeilen-Oberfläche (UI) des Chat-Clients.
-# @details Dieses Modul stellt über IPC Verbindungen zu Discovery- und Network-Services her.
-#          Nach erfolgreicher Verbindung wird die interaktive Textoberfläche (CLI) gestartet,
-#          mit der Nutzer Nachrichten senden und empfangen sowie Konfigurationen ändern können.
-# @usage python3 main_ui.py <configfile.toml> [disc_port] [net_port]
-# 
-# - Discovery-Service wird standardmäßig über Port 6000 erreicht.
-# - Network-Service wird standardmäßig über Port 6001 erreicht.
-# - Die Kommunikation erfolgt über die Python ⁠ multiprocessing.connection.Client ⁠-Schnittstelle.
-#
-# @author Gruppe A11
-# @date Juni 2025
-#
-# @see run_ui()
-# @see Config
+"""
+@file main_ui.py
+@brief Startskript für die Kommandozeilen-Oberfläche (CLI) des Chat-Clients.
+@details Stellt IPC-Verbindungen zu Discovery- und Network-Services her und startet die interaktive Benutzeroberfläche.
+@usage python3 main_ui.py <configfile.toml> [disc_port] [net_port]
+"""
+
 
 import sys
 from config import Config
