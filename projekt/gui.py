@@ -256,9 +256,8 @@ class ChatClientGUI:
                         ip, port = self.peers.get(sender, (None, None))
                         if ip and port:
                             self.net_cmd.send(("send_msg", self.handle, sender, self.autoreply_text, ip, port))
-                        # Nachricht wird nicht angezeigt
-                    else:
-                        self.display_message(sender, text)
+                    # Nachricht immer anzeigen – egal ob AFK oder nicht
+                    self.display_message(sender, text)
             elif evt[0] == "img":
                 _, sender, path = evt
                 if sender != self.handle:
